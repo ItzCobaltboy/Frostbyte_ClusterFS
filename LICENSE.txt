@@ -1,0 +1,49 @@
+Frostbyte Software License (Non-Commercial Use)
+
+Copyright (c) 2025 Affan Pathan
+All rights reserved.
+
+This software and its source code (collectively, “Frostbyte”) are licensed for personal, educational, and non-commercial use only, under the following terms:
+
+─────────────────────────────────────────────
+1. Attribution
+─────────────────────────────────────────────
+You must retain this license file and provide clear credit to the original author in any use, redistribution, or derivative work of the software.
+
+Suggested attribution:
+    Frostbyte by [Your Name or Alias], licensed for non-commercial use.
+
+─────────────────────────────────────────────
+2. Non-Commercial Use Only
+─────────────────────────────────────────────
+You may not use this software, in whole or in part, for any commercial purpose. This includes, but is not limited to:
+
+- Using it in a product or service you sell or monetize
+- Hosting it as part of a paid or revenue-generating infrastructure
+- Integrating it into commercial workflows
+
+─────────────────────────────────────────────
+3. Redistribution
+─────────────────────────────────────────────
+You may copy, distribute, and modify this software for non-commercial use only, provided:
+
+- You include this license file (`LICENSE.txt`) with any distribution
+- You clearly credit the original author
+- You do not misrepresent the origin of the software
+
+─────────────────────────────────────────────
+4. No Warranty
+─────────────────────────────────────────────
+This software is provided "as-is" without any express or implied warranties. The author is not responsible for any damage, data loss, or legal issues arising from the use of this software.
+
+─────────────────────────────────────────────
+5. Commercial Licensing
+─────────────────────────────────────────────
+For commercial use, enterprise deployment, or official support, a separate paid license is required.
+
+📧 Contact: business.cobaltboy@gmail.com
+
+─────────────────────────────────────────────
+
+By using this software in any form, you agree to these terms. If you do not agree, you must not use, distribute, or modify the software.
+
