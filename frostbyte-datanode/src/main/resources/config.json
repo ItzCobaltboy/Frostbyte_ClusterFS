@@ -5,7 +5,7 @@
 
   "masterNodes": ["127.0.0.1:7000"],
 
-  "chunkFolder": "chunks",
+  "snowflakeFolder": "chunks",
   "masterAPIKey": "ABCDEFEG",
   "size": 5
 }

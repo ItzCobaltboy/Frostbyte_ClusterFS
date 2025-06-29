@@ -15,6 +15,6 @@ public class configModel {
 
     // File address
     private String masterAPIKey;
-    private String chunkFolder;
+    private String snowflakeFolder;
     private int size;
 }

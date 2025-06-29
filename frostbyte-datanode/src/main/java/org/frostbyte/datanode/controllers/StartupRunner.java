@@ -4,45 +4,49 @@ import org.frostbyte.datanode.models.configModel;
 import org.frostbyte.datanode.utils.MasterNodeCommunicator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 import java.nio.file.*;
 import org.frostbyte.datanode.utils.FolderSizeChecker;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
-@Configuration
+@Component
 public class StartupRunner implements CommandLineRunner {
 
     private final configModel config;
     private final MasterNodeCommunicator communicator;
     private static final Logger log = LoggerFactory.getLogger(StartupRunner.class);
 
+    @Autowired
     public StartupRunner(configModel config, MasterNodeCommunicator communicator) {
         this.config = config;
         this.communicator = communicator;
     }
 
     @Override
-    public void run(String... args) throws Exception {
-        log.info("Starting Frostbyte Cluster Data Node Controller");
+    public void run(String... args) throws IOException{
 
-        log.info("Loaded configuration as follows:" +
-                " | Host: " + config.getHost() +
-                " | Port: " + config.getPort() +
-                " | Chunks Location: " + config.getChunkFolder() +
-                " | Storage Size(GB): " + config.getSize());
+        try {
+            log.info("Starting Frostbyte Cluster Data Node Controller");
 
-        Path chunkFolder = Paths.get(config.getChunkFolder());
-        Files.createDirectories(chunkFolder);
-        log.info("Created chunk folder Successfully: " + chunkFolder);
+            log.info("Loaded configuration as follows: | Host: {} | Port: {} | Chunks Location: {} | Storage Size(GB): {}", config.getHost(), config.getPort(), config.getSnowflakeFolder(), config.getSize());
 
-        float fillSpace = FolderSizeChecker.getFolderSize(chunkFolder);
-        float fillPercentage = fillSpace / (float) config.getSize();
+            Path chunkFolder = Paths.get(config.getSnowflakeFolder());
+            Files.createDirectories(chunkFolder);
+            log.info("Created chunk folder Successfully: {}", chunkFolder);
 
-        log.info("Total Space occupied " + fillSpace + " GB | %" + fillPercentage*100);
+            float fillSpace = FolderSizeChecker.getFolderSize(chunkFolder);
+            float fillPercentage = fillSpace / (float) config.getSize();
 
-        communicator.registerWithMasters();
+            log.info("Total Space occupied {} GB | %{}", fillSpace, fillPercentage * 100);
+
+            communicator.registerWithMasters();
+        } catch (IOException e) {
+            throw new IOException(e);
+        }
 
     }
 
