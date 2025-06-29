@@ -25,3 +25,7 @@ replay_pid*
 
 # IntelliJ Idea Trash
 .idea/
+
+# Runtime Trash
+config.json
+chunks/

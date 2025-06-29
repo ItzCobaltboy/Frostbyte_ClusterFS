@@ -1,0 +1,11 @@
+{
+  "host": "127.0.0.1",
+  "port": 6960,
+  "nodeName": "Datanode_1",
+
+  "masterNodes": ["127.0.0.1:7000"],
+
+  "chunkFolder": "chunks",
+  "masterAPIKey": "ABCDEFEG",
+  "size": 5
+}
