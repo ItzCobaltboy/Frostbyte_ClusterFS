@@ -242,8 +242,3 @@ chunk_1: [Node2, Node3]
 * [ ] Build session manager
 * [ ] Write garbage collector for orphaned chunks
 * [ ] Publish first working build
-
----
-
-**This is your holy markdown bible.**
-Push it. Ship it. Show the world. Yeet your files into greatness. 🚀
