@@ -1,8 +1,13 @@
-# ☁️ Frostbyte Gameplan
+# NOTE: This project is still under progress at time of latest commit, below is the System design
+## Progress
+- Two basic microservices aka DataNode and MasterNode have been updated and tested for register and heartbeat system, Datanode can send and recieve chunks.
+- Other three types of nodes are still pending to be coded
+
+# ☁️ Frostbyte ClusterFS Plan
 
 ## 🔥 Project Summary
 
-A distributed, encrypted, chunked object storage system — S3-style — with fully modular microservices. Written in Java + Spring Boot, deployed via Docker. Every file is streamed, split into chunks, encrypted, and distributed across multiple DataNodes with redundancy and zero-trust pipeline.
+A distributed, encrypted, chunked object storage system — S3-style — with fully modular microservices. Written in Java + Spring Boot, deployed via Docker. Every file is streamed, split into chunks, encrypted, and distributed across multiple DataNodes with redundancy and zero-trust pipeline. All files are encrypted as soon as they reach the system using dynamically generated keys, the keys themsselves are stored encrypted in the database, thus employing a zero trust infra architecture. Autoscale friendly, packages into `.jar` for easy deployment and launch, with support for external editable `config.json` and dockerfile for quick and easy deployment. 
 
 ---
 
