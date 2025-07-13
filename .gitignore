@@ -29,3 +29,4 @@ replay_pid*
 # Runtime Trash
 config.json
 chunks/
+target/*

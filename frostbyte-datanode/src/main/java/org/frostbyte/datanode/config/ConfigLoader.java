@@ -1,4 +1,4 @@
-package org.frostbyte.datanode.Config;
+package org.frostbyte.datanode.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.frostbyte.datanode.models.configModel;

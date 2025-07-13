@@ -1,4 +1,4 @@
-package org.frostbyte.datanode.controllers;
+package org.frostbyte.datanode.services;
 
 import org.frostbyte.datanode.models.configModel;
 import org.frostbyte.datanode.utils.MasterNodeCommunicator;

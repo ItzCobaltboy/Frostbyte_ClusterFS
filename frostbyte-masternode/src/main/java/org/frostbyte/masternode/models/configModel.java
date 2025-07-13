@@ -1,4 +1,4 @@
-package org.frostbyte.datanode.models;
+package org.frostbyte.masternode.models;
 
 
 import lombok.Data;
@@ -10,11 +10,6 @@ public class configModel {
     private int port;
     private String nodeName;
 
-    // Masternode list
-    private String[] masterNodes;
-
     // File address
     private String masterAPIKey;
-    private String snowflakeFolder;
-    private int size;
 }

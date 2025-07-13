@@ -117,8 +117,8 @@ Chunk {
 * Assign accordingly:
 
 ```json
-chunk_0: [Node1, Node2]
-chunk_1: [Node2, Node3]
+"chunk_0": ["Node1", "Node2"],
+"chunk_1": ["Node2", "Node3"]
 ```
 
 ---
