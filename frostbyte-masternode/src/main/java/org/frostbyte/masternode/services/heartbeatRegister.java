@@ -3,6 +3,7 @@ package org.frostbyte.masternode.services;
 import lombok.Getter;
 import org.frostbyte.masternode.models.BalancerNode;
 import org.frostbyte.masternode.models.DataNode;
+import org.frostbyte.masternode.models.DatabaseNode;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,8 @@ public class heartbeatRegister {
     // Getters (if needed elsewhere)
     private Vector<DataNode> datanodes = new Vector<>();
     private Vector<BalancerNode> balancers = new Vector<>();
+    private final Vector<DatabaseNode> databasenodes = new Vector<>(); // Add new list
+
 
     public void addDataNode(DataNode datanode) {
         datanode.setLastUpdateTime(LocalDateTime.now());
@@ -32,6 +35,13 @@ public class heartbeatRegister {
         balancers.add(balancerNode);
     }
 
+    public void addDatabaseNode(DatabaseNode databaseNode) {
+        databaseNode.setLastUpdateTime(LocalDateTime.now());
+        databaseNode.setRegisterTime(LocalDateTime.now());
+        databaseNode.setAlive(true);
+        databasenodes.add(databaseNode);
+    }
+
     public boolean updateDataNode(String nodeName) {
         for (DataNode node : datanodes) {
             if (node.getNodeName().equals(nodeName)) {
@@ -45,6 +55,17 @@ public class heartbeatRegister {
 
     public boolean updateBalancerNode(String nodeName) {
         for (BalancerNode node : balancers) {
+            if (node.getNodeName().equals(nodeName)) {
+                node.setLastUpdateTime(LocalDateTime.now());
+                node.setAlive(true);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean updateDatabaseNode(String nodeName) {
+        for (DatabaseNode node : databasenodes) {
             if (node.getNodeName().equals(nodeName)) {
                 node.setLastUpdateTime(LocalDateTime.now());
                 node.setAlive(true);
@@ -70,6 +91,12 @@ public class heartbeatRegister {
                 node.setAlive(false);
             }
         }
+
+        for (DatabaseNode node : databasenodes) {
+            if (node.getLastUpdateTime().isBefore(cutoff)) {
+                node.setAlive(false);
+            }
+        }
     }
 
     public Vector<BalancerNode> getAliveBalancers() {
@@ -90,5 +117,15 @@ public class heartbeatRegister {
             }
         }
         return aliveDataNodes;
+    }
+
+    public Vector<DatabaseNode> getAliveDatabaseNodes() {
+        Vector<DatabaseNode> aliveDatabaseNodes = new Vector<>();
+        for (DatabaseNode node : databasenodes) {
+            if (node.getAlive()) {
+                aliveDatabaseNodes.add(node);
+            }
+        }
+        return aliveDatabaseNodes;
     }
 }

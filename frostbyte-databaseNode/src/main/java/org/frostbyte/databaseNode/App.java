@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.frostbyte.databaseNode.models.configModel;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,6 +15,7 @@ import java.nio.file.StandardCopyOption;
 
 
 @SpringBootApplication
+@EnableScheduling
 public class App {
     public static void main(String[] args) throws IOException {
 
@@ -39,7 +40,6 @@ public class App {
             throw new IOException(e);
         }
 
-        configModel test = mapper.readValue(new File("config.json"), configModel.class);
 
         System.setProperty("server.address", root.get("host").asText());
         System.setProperty("server.port", root.get("port").asText());

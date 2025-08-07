@@ -9,10 +9,12 @@ import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.logging.Logger;
 
 @Configuration
 public class ConfigLoader {
     private static final String CONFIG_FILE = "config.json";
+    private static final Logger log =  Logger.getLogger(ConfigLoader.class.getName());
 
     @Bean
     public configModel configModel() {
@@ -25,7 +27,7 @@ public class ConfigLoader {
                         throw new RuntimeException("Default config.json not found in resources!");
                     }
                     Files.copy(in, configFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    System.out.println("Default " + CONFIG_FILE + " created. Please configure it and restart.");
+                    log.info("Default " + CONFIG_FILE + " created. Please configure it and restart.");
                 }
             }
 
