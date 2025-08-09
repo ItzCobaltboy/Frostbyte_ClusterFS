@@ -59,9 +59,9 @@ public class Datanode_controller {
 
             Path targetFile = snowflakeFolder.resolve(Objects.requireNonNull(file.getOriginalFilename()));
             if (targetFile.toFile().exists()) {
+                log.info("File " + targetFile + " already exists.");
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(
                         Map.of( "status", "error",
-                                "snowflakeName", file.getName(),
                                 "message", "snowflake with same name already exists"));
             }
             file.transferTo(targetFile);

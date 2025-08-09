@@ -1,26 +1,29 @@
 package org.frostbyte.masternode;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.frostbyte.masternode.models.configModel;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 @SpringBootApplication
 @EnableScheduling
 public class App {
-    public static void main(String[] args) throws IOException {
-        // Open config.json, otherwise copy from resources to root folder
+    public static void main(String[] args) throws Exception {
+        // Skip config loading if we're in test mode
+        if (System.getProperty("spring.test.context") == null) {
+            loadConfigAndSetProperties();
+        }
+
+        SpringApplication.run(App.class, args);
+    }
+
+    private static void loadConfigAndSetProperties() throws Exception {
         File file = new File("config.json");
 
         if (!file.exists()) {
@@ -34,16 +37,9 @@ public class App {
         }
 
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode root;
-        try {
-            root = mapper.readTree(file);
-        } catch (JsonProcessingException e) {
-            throw new IOException(e);
-        }
-        
+        JsonNode root = mapper.readTree(file);
+
         System.setProperty("server.address", root.get("host").asText());
         System.setProperty("server.port", root.get("port").asText());
-
-        SpringApplication.run(App.class, args);
     }
 }

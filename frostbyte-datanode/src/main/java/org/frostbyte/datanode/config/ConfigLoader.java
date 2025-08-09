@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.frostbyte.datanode.models.configModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+
 import java.io.File;
 
 
@@ -12,6 +14,7 @@ public class ConfigLoader {
     private static final String CONFIG_NAME = "config.json";
 
     @Bean
+    @Profile("!test") // Only in production
     public configModel configModel() {
         try {
             File configFile = new File(CONFIG_NAME);
