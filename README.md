@@ -1,7 +1,7 @@
 # NOTE: This project is still under progress at time of latest commit, below is the System design
 ## Progress
 - Two basic microservices aka DataNode and MasterNode have been updated and tested for registration and heartbeat system, Datanode can send and recieve chunks.
-- Other three types of nodes are still pending to be coded
+- Elaborate Unit tests for Masternode and datanode have been setup
 
 # ☁️ Frostbyte ClusterFS Plan
 
