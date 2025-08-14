@@ -9,7 +9,7 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class KeyCreationResponse {
+public class KeyRetrievalRequest {
     private UUID chunkId;
-    private String Key; // The unencrypted key for the client to use
+    private String publicKey; // Base64 encoded RSA public key from client
 }

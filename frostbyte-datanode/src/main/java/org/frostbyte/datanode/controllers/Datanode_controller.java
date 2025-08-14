@@ -1,4 +1,4 @@
-package org.frostbyte.datanode.services;
+package org.frostbyte.datanode.controllers;
 
 
 import org.frostbyte.datanode.models.configModel;

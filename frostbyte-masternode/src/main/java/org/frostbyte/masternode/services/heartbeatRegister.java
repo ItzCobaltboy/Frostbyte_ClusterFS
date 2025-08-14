@@ -16,7 +16,9 @@ import java.util.Vector;
 public class heartbeatRegister {
 
     // Getters (if needed elsewhere)
+    @SuppressWarnings("FieldMayBeFinal")
     private Vector<DataNode> datanodes = new Vector<>();
+    @SuppressWarnings("FieldMayBeFinal")
     private Vector<BalancerNode> balancers = new Vector<>();
     private final Vector<DatabaseNode> databasenodes = new Vector<>(); // Add new list
 

@@ -23,7 +23,6 @@ public class MasternodeControllerTest {
     private MockMvc mockMvc;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String TEST_API_KEY = "TEST_KEY_123";
 
     @Test
     void testRegisterDataNode_Success() throws Exception {
@@ -32,6 +31,7 @@ public class MasternodeControllerTest {
         request.setNodeName("TestDataNode1");
         request.setNodeType(nodeType.DataNode);
 
+        String TEST_API_KEY = "TEST_KEY_123";
         mockMvc.perform(post("/datanode/register")
                         .header("X-API-Key", TEST_API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,8 +1,9 @@
-package org.frostbyte.masternode.services;
+package org.frostbyte.masternode.controllers;
 
 
 import jakarta.validation.Valid;
 import org.frostbyte.masternode.models.*;
+import org.frostbyte.masternode.services.heartbeatRegister;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -83,6 +84,30 @@ public class Masternode_controller {
         return ResponseEntity.ok(Map.of("nodeType", req.getNodeType(), "success", "true"));
     }
 
+    @PostMapping("/database/register")
+    public ResponseEntity<?> registerDB(@RequestHeader(API_HEADER) String apiKey,
+                                        @RequestBody @Valid registerRequest req) {
+        log.info("Incoming register: " + req);
+
+        if (!isAuthorized(apiKey)) return ResponseEntity.badRequest().body(Map.of("INFO", "Invalid API Key", "success", "false"));
+
+        if (req.getNodeType() != nodeType.DatabaseNode) {
+            log.warning("Invalid node type");
+            return ResponseEntity.badRequest().body(Map.of("INFO", "Expected nodeType = DatabaseNode", "success", "false"));
+        }
+
+        DatabaseNode dbNode = new DatabaseNode();
+        dbNode.setHost(req.getIp());
+        dbNode.setNodeName(req.getNodeName());
+        dbNode.setRegisterTime(LocalDateTime.now());
+        dbNode.setLastUpdateTime(LocalDateTime.now());
+
+        hr.addDatabaseNode(dbNode);
+        log.info("New database node added: " + dbNode);
+        return ResponseEntity.ok(Map.of("nodeType", req.getNodeType(), "success", "true"));
+    }
+
+
     @PostMapping("/datanode/heartbeat")
     public ResponseEntity<?> dataNodeHeartbeat(@RequestHeader(API_HEADER) String apiKey,
                                                @RequestParam("nodeName") String nodeName) {
@@ -104,6 +129,18 @@ public class Masternode_controller {
 
         return ResponseEntity.ok(Map.of("nodeName", nodeName, "success", "true"));
     }
+
+    @PostMapping("/database/heartbeat")
+    public ResponseEntity<?> databaseNodeHeartbeat(@RequestHeader(API_HEADER) String apiKey,
+                                                   @RequestParam("nodeName") String nodeName) {
+        if (!isAuthorized(apiKey)) return ResponseEntity.badRequest().body(Map.of("INFO", "Invalid API Key", "success", "false"));
+
+        boolean updated = hr.updateDatabaseNode(nodeName);
+        if (!updated) return ResponseEntity.badRequest().body(Map.of("INFO", "Node not found", "success", "false"));
+
+        return ResponseEntity.ok(Map.of("nodeName", nodeName, "success", "true"));
+    }
+
 
     @GetMapping("/datanode/getAlive")
     public ResponseEntity<?> getAlive(@RequestHeader(API_HEADER) String apiKey) {
@@ -159,41 +196,7 @@ public class Masternode_controller {
         return ResponseEntity.status(200).body(Map.of("aliveNodes", output, "Timestamp", LocalDateTime.now()));
     }
 
-    // Add these new methods to your Masternode_controller class
 
-    @PostMapping("/database/register")
-    public ResponseEntity<?> registerDB(@RequestHeader(API_HEADER) String apiKey,
-                                        @RequestBody @Valid registerRequest req) {
-        log.info("Incoming register: " + req);
-
-        if (!isAuthorized(apiKey)) return ResponseEntity.badRequest().body(Map.of("INFO", "Invalid API Key", "success", "false"));
-
-        if (req.getNodeType() != nodeType.DatabaseNode) {
-            log.warning("Invalid node type");
-            return ResponseEntity.badRequest().body(Map.of("INFO", "Expected nodeType = DatabaseNode", "success", "false"));
-        }
-
-        DatabaseNode dbNode = new DatabaseNode();
-        dbNode.setHost(req.getIp());
-        dbNode.setNodeName(req.getNodeName());
-        dbNode.setRegisterTime(LocalDateTime.now());
-        dbNode.setLastUpdateTime(LocalDateTime.now());
-
-        hr.addDatabaseNode(dbNode);
-        log.info("New database node added: " + dbNode);
-        return ResponseEntity.ok(Map.of("nodeType", req.getNodeType(), "success", "true"));
-    }
-
-    @PostMapping("/database/heartbeat")
-    public ResponseEntity<?> databaseNodeHeartbeat(@RequestHeader(API_HEADER) String apiKey,
-                                                   @RequestParam("nodeName") String nodeName) {
-        if (!isAuthorized(apiKey)) return ResponseEntity.badRequest().body(Map.of("INFO", "Invalid API Key", "success", "false"));
-
-        boolean updated = hr.updateDatabaseNode(nodeName);
-        if (!updated) return ResponseEntity.badRequest().body(Map.of("INFO", "Node not found", "success", "false"));
-
-        return ResponseEntity.ok(Map.of("nodeName", nodeName, "success", "true"));
-    }
 
     @GetMapping("/database/getAlive")
     public ResponseEntity<?> getAliveDatabaseNodes(@RequestHeader(API_HEADER) String apiKey) {
