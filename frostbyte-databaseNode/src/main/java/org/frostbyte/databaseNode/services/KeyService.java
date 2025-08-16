@@ -35,7 +35,7 @@ public class KeyService {
         // 2. Generate a new, cryptographically secure AES-256 key.
         String plainTextKey = generateAesKey();
 
-        log.info("Generated Key for UUID " + chunkId.toString());
+        log.info("Generated Key for UUID " + chunkId);
         // 4. Create a new ChunkKey entity object to save to the database.
         KeyPair newChunkKey = new KeyPair();
         newChunkKey.setChunkId(chunkId);
