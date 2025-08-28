@@ -12,7 +12,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "chunks")
 @Data
-public class Chunks {
+public class Chunk {
 
     @Id
     @Column(name = "chunk_id", columnDefinition = "uuid")

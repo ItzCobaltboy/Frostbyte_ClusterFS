@@ -5,6 +5,7 @@ import lombok.Data;
 import org.frostbyte.databaseNode.models.ReplicaStatus;
 
 import java.sql.Timestamp;
+import java.util.UUID;
 
 @Entity
 @Table(name = "chunk_replicas")
@@ -15,9 +16,8 @@ public class ChunkReplica {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "chunk_id", nullable = false)
-    private Chunks chunk;
+    @Column(name = "chunk_id", columnDefinition = "uuid", nullable = false)
+    private UUID chunkId;
 
     @Column(name = "datanode_id", nullable = false)
     private String datanodeId;
