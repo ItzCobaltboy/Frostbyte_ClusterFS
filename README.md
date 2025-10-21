@@ -3,6 +3,9 @@
 - Two basic microservices aka DataNode and MasterNode have been updated and tested for registration and heartbeat system, Datanode can send and recieve chunks.
 - Elaborate Unit tests for Masternode and datanode have been setup
 
+
+### NOTE 2: Its not abandoned yet, I will be back T-T
+
 # ☁️ Frostbyte ClusterFS Plan
 
 ## 🔥 Project Summary
