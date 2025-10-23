@@ -16,6 +16,9 @@ public class configModel {
 
     // Client node params
     private int maxThreadPool;
-    private int chunkSize;
+    private int chunkSizeMB;
+
+    // Storage params
+    private String snowflakeStorageFolder;
 
 }

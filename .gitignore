@@ -1,5 +1,6 @@
 # Compiled class file
 *.class
+test-deployment/
 
 # Log file
 *.log
@@ -30,3 +31,5 @@ replay_pid*
 config.json
 chunks/
 target/*
+
+CLAUDE.md
