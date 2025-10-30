@@ -1,5 +1,0 @@
-# Created at 2025-10-23T11:47:16.696
-Boot Manifest-JAR contains absolute paths in classpath 'K:\VSCode\Frostbyte_ClusterFS\frostbyte-datanode\target\test-classes'
-Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
-'other' has different root
-

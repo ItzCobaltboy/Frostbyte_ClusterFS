@@ -1,0 +1,17 @@
+{
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "frostbyte_metadata_db",
+    "username": "postgres_user",
+    "password": "your_secure_password"
+  },
+  "host": "127.0.0.1",
+  "port": 8082,
+  "nodeName": "DatabaseNode-01",
+  "masterNodes": [
+    "127.0.0.1:7000",
+    "127.0.0.1:7001"
+  ],
+  "masterAPIKey": "ABCDEFEG"
+}

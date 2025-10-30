@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: org.frostbyte.clientnode.services.KeyClientUnitTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.726 s -- in org.frostbyte.clientnode.services.KeyClientUnitTest
