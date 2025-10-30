@@ -1,29 +1,39 @@
-# Compiled class file
+###############################
+# 🌨️ Frostbyte Project Gitignore
+# Clean setup for multi-module Maven + VSCode + IntelliJ
+###############################
+
+# =========================
+# Java & Maven
+# =========================
+target/
+**/target/
 *.class
-test-deployment/
-
-# Log file
-*.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
 *.jar
 *.war
-*.nar
 *.ear
 *.zip
 *.tar.gz
 *.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+*.log
 hs_err_pid*
 replay_pid*
 
+# Maven release/backup files
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# =========================
+# IDEs & Editors
+# =========================
 # IntelliJ IDEA
 .idea/
 *.iml
@@ -38,48 +48,76 @@ out/
 bin/
 
 # NetBeans
-nbproject/private/
-build/
+nbproject/
 nbbuild/
 dist/
 nbdist/
+build/
 
-# VS Code
+# VSCode
 .vscode/
+*.code-workspace
 
-# Maven
-target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
-
-# Runtime files
-config.json
-chunks/
-snowflakes/
-
-# Test reports
-surefire-reports/
-*.dumpstream
-
-# OS specific
+# =========================
+# OS Files
+# =========================
 .DS_Store
 Thumbs.db
+desktop.ini
 *~
-
-# Temporary files
-*.tmp
-*.bak
 *.swp
 *.swo
-/frostbyte-datanode/target/
-/frostbyte-clientnode/target/
-/frostbyte-balancer/target/
-/frostbyte-databaseNode/target/
-/frostbyte-masternode/target/
+*.bak
+*.tmp
+
+# =========================
+# Python (for venv)
+# =========================
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+env.bak/
+
+# =========================
+# Runtime & Deployment
+# =========================
+test-deployment/
+chunks/
+snowflakes/
+*.dumpstream
+*.ctxt
+*.pid
+*.dump
+
+# =========================
+# Test Reports
+# =========================
+surefire-reports/
+**/surefire-reports/
+*.dumpstream
+*.test
+**/test-classes/
+**/generated-sources/
+**/generated-test-sources/
+**/maven-status/
+**/maven-archiver/
+
+# =========================
+# Node / Other Package Managers (future-proof)
+# =========================
+node_modules/
+package-lock.json
+yarn.lock
+
+# =========================
+# Keep Only Essentials
+# =========================
+# Keep all source files and important metadata
+!**/src/**
+!**/pom.xml
+!**/README.md
+!**/claude.md
