@@ -61,10 +61,10 @@ public class KeyService {
     }
 
     public String findKey(UUID chunkId) {
-        Optional<KeyPair> pair = chunkKeyRepository.findById(chunkId);
+        Optional<KeyPair> pair = chunkKeyRepository.findByChunkId(chunkId);
 
         if (pair.isPresent()) {
-            log.info("Re    trieved key for Chunk ID: " + chunkId);
+            log.info("Retrieved key for Chunk ID: " + chunkId);
             return pair.get().getKey();
         } else {
             log.info("Key not found for Chunk ID: " + chunkId);

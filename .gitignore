@@ -24,12 +24,62 @@ test-deployment/
 hs_err_pid*
 replay_pid*
 
-# IntelliJ Idea Trash
+# IntelliJ IDEA
 .idea/
+*.iml
+*.iws
+*.ipr
+out/
 
-# Runtime Trash
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# NetBeans
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+
+# VS Code
+.vscode/
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Runtime files
 config.json
 chunks/
-target/*
+snowflakes/
 
-CLAUDE.md
+# Test reports
+surefire-reports/
+*.dumpstream
+
+# OS specific
+.DS_Store
+Thumbs.db
+*~
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+/frostbyte-datanode/target/
+/frostbyte-clientnode/target/
+/frostbyte-balancer/target/
+/frostbyte-databaseNode/target/
+/frostbyte-masternode/target/
