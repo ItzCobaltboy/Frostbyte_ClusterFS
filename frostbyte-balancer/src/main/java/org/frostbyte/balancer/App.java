@@ -1,18 +1,11 @@
-package org.frostbyte.databaseNode;
+package org.frostbyte.balancer;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.frostbyte.databaseNode.services.ConfigLoader;
-
 
 @SpringBootApplication
-@EnableScheduling
 public class App {
     public static void main(String[] args) {
-
-        ConfigLoader.ensureConfigExists();
-
         SpringApplication.run(App.class, args);
 
     }

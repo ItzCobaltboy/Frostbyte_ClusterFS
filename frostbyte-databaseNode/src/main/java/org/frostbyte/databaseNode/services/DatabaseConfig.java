@@ -2,6 +2,8 @@ package org.frostbyte.databaseNode.services;
 
 import org.frostbyte.databaseNode.models.configModel;
 import org.frostbyte.databaseNode.models.configModel.DatabaseDetails;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -21,9 +23,11 @@ public class DatabaseConfig {
 
     private final configModel config;
 
-    public DatabaseConfig(configModel config) {
+    @Autowired
+    public DatabaseConfig(@Qualifier("configModel") configModel config) {
         this.config = config;
     }
+
 
     @Bean
     public DataSource dataSource() {

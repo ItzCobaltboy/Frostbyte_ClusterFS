@@ -1,4 +1,4 @@
-package org.frostbyte.masternode.config;
+package org.frostbyte.balancer.services;
 
 import org.springframework.context.annotation.Configuration;
 
@@ -6,10 +6,12 @@ import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.logging.Logger;
 
 @Configuration
 public class ConfigLoader {
     private static final String CONFIG_FILE = "application.properties";
+    private static final Logger log = Logger.getLogger(ConfigLoader.class.getName());
 
     @PostConstruct
     public void init() {
@@ -32,15 +34,20 @@ public class ConfigLoader {
 
     private void createTemplateConfig(File file) throws IOException {
         try (FileWriter writer = new FileWriter(file)) {
-            writer.write("# Frostbyte MasterNode Configuration\n");
+            writer.write("# Frostbyte Balancer Configuration\n");
             writer.write("# Server Configuration\n");
-            writer.write("frostbyte.masternode.host=127.0.0.1\n");
-            writer.write("frostbyte.masternode.port=7001\n");
-            writer.write("frostbyte.masternode.node-name=Masternode_1\n");
+            writer.write("frostbyte.balancer.host=127.0.0.1\n");
+            writer.write("frostbyte.balancer.port=8999\n");
+            writer.write("frostbyte.balancer.node-name=Balancernode_1\n");
+            writer.write("\n");
+            writer.write("# Master Nodes (comma-separated)\n");
+            writer.write("frostbyte.balancer.master-nodes=127.0.0.1:7001\n");
             writer.write("\n");
             writer.write("# Security Configuration\n");
-            writer.write("frostbyte.masternode.master-api-key=ABCDEFEG\n");
+            writer.write("frostbyte.balancer.master-api-key=ABCDEFEG\n");
+            writer.write("\n");
+            writer.write("# Replication Configuration\n");
+            writer.write("frostbyte.balancer.replica-count=3\n");
         }
     }
-
 }

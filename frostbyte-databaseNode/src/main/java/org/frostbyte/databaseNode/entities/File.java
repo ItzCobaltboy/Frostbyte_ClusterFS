@@ -32,6 +32,6 @@ public class File {
     @Column(name = "session_id", columnDefinition = "uuid")
     private UUID sessionId;  // Just the UUID!
 
-    @Column(name = "created_at", nullable = false, updatable = false, insertable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    @Column(name = "created_at", updatable = false, insertable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Timestamp createdAt;
 }

@@ -1,6 +1,5 @@
 package org.frostbyte.clientnode.services;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.frostbyte.clientnode.models.configModel;
 import org.springframework.http.HttpEntity;
@@ -12,7 +11,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Service
@@ -156,6 +154,54 @@ public class MasterNodeDiscoveryService {
 
         log.fine("[DB-DISCOVERY] Extracted DatabaseNode address: " + nodeHost);
         return nodeHost;
+    }
+
+    /**
+     * Discover BalancerNode address from MasterNode(s).
+     * @return host:port for a balancer
+     */
+    public synchronized String discoverBalancerNode() {
+        if (config == null || config.getMasterNodes() == null || config.getMasterNodes().length == 0) {
+            throw new IllegalStateException("No masterNodes configured");
+        }
+        String lastError = null;
+        String[] masterNodes = config.getMasterNodes();
+        for (int i = 0; i < masterNodes.length; i++) {
+            String masterNode = masterNodes[i];
+            try {
+                String host = masterNode;
+                if (!host.startsWith("http://") && !host.startsWith("https://")) host = "http://" + host;
+                String endpoint = host + (host.endsWith("/") ? "" : "/") + "balancer/getAlive";
+
+                HttpHeaders headers = new HttpHeaders();
+                if (config.getMasterAPIKey() != null) headers.set("X-API-Key", config.getMasterAPIKey());
+                HttpEntity<String> entity = new HttpEntity<>("", headers);
+
+                ResponseEntity<String> resp = rest.exchange(endpoint, org.springframework.http.HttpMethod.GET, entity, String.class);
+                if (resp.getStatusCode() != HttpStatus.OK) throw new RuntimeException("MasterNode status=" + resp.getStatusCode().value());
+
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> body = mapper.readValue(resp.getBody(), java.util.Map.class);
+                Object aliveNodesObj = body.get("aliveNodes");
+                if (aliveNodesObj instanceof String && "NULL".equals(aliveNodesObj)) continue;
+                if (!(aliveNodesObj instanceof java.util.List)) continue;
+                java.util.List<?> list = (java.util.List<?>) aliveNodesObj;
+                if (list.isEmpty()) continue;
+                Object first = list.get(0);
+                if (!(first instanceof java.util.Map)) continue;
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> node = (java.util.Map<String, Object>) first;
+                String nodeHost = (String) node.get("host");
+                if (nodeHost != null && !nodeHost.isEmpty()) {
+                    log.info("[BALANCER-DISCOVERY] Discovered balancer: " + nodeHost);
+                    return nodeHost;
+                }
+            } catch (Exception e) {
+                lastError = e.getMessage();
+                log.warning(String.format("[BALANCER-DISCOVERY] MasterNode[%d] %s failed: %s", i, masterNode, lastError));
+            }
+        }
+        throw new IllegalStateException("Failed to discover any balancer node. Last error: " + lastError);
     }
 
     /**

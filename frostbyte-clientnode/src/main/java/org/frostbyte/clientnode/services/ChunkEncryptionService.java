@@ -11,7 +11,6 @@ import java.util.Base64;
 @Service
 public class ChunkEncryptionService {
 
-    private static final int AES_KEY_SIZE = 256;
     private static final int GCM_TAG_LENGTH = 128;
     private static final int IV_LENGTH = 12;
 

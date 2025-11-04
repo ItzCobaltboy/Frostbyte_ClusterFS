@@ -203,6 +203,52 @@ public class  KeyClient {
         return body;
     }
 
+    // Set balancer node for a session on DatabaseNode
+    public Map<String, Object> setBalancerForSession(String sessionId, String balancerNodeId) throws Exception {
+        String host = discoveryService.discoverDatabaseNode();
+        if (!host.startsWith("http://") && !host.startsWith("https://")) host = "http://" + host;
+        String endpoint = host + (host.endsWith("/") ? "" : "/") + "upload/session/" + sessionId + "/balancer";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (config.getMasterAPIKey() != null) headers.set("X-API-Key", config.getMasterAPIKey());
+
+        String json = mapper.writeValueAsString(Map.of("balancerNodeId", balancerNodeId));
+        HttpEntity<String> entity = new HttpEntity<>(json, headers);
+        ResponseEntity<String> resp = rest.exchange(endpoint, HttpMethod.PUT, entity, String.class);
+        if (!resp.getStatusCode().is2xxSuccessful()) {
+            String msg = "Set balancer returned status: " + resp.getStatusCode().value();
+            log.severe("[SESSION-BALANCER-ERR] body=" + resp.getBody());
+            throw new RuntimeException(msg);
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = mapper.readValue(resp.getBody(), Map.class);
+        return body;
+    }
+
+    // Update session status (UPLOADING/FAILED)
+    public Map<String, Object> updateSessionStatus(String sessionId, String status) throws Exception {
+        String host = discoveryService.discoverDatabaseNode();
+        if (!host.startsWith("http://") && !host.startsWith("https://")) host = "http://" + host;
+        String endpoint = host + (host.endsWith("/") ? "" : "/") + "upload/session/" + sessionId + "/status";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (config.getMasterAPIKey() != null) headers.set("X-API-Key", config.getMasterAPIKey());
+
+        String json = mapper.writeValueAsString(Map.of("status", status));
+        HttpEntity<String> entity = new HttpEntity<>(json, headers);
+        ResponseEntity<String> resp = rest.exchange(endpoint, HttpMethod.PUT, entity, String.class);
+        if (!resp.getStatusCode().is2xxSuccessful()) {
+            String msg = "Update session status returned: " + resp.getStatusCode().value();
+            log.severe("[SESSION-STATUS-ERR] body=" + resp.getBody());
+            throw new RuntimeException(msg);
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = mapper.readValue(resp.getBody(), Map.class);
+        return body;
+    }
+
     // Utility to convert a base64-encoded RSA public key (X.509) to PublicKey instance
     public PublicKey base64ToPublicKey(String base64) throws Exception {
         byte[] decoded = Base64.getDecoder().decode(base64);

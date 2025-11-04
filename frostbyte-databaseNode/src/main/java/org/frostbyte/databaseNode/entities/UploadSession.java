@@ -22,7 +22,7 @@ public class UploadSession {
     @Column(name = "balancer_node")
     private String balancerNode;
 
-    @Column(name = "started_at", nullable = false, updatable = false, insertable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    @Column(name = "started_at", updatable = false, insertable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private Timestamp startedAt;
 
     @Column(name = "updated_at")

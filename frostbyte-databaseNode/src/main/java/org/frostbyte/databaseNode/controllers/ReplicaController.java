@@ -213,7 +213,7 @@ public class ReplicaController {
     @GetMapping("/file/{fileId}/map")
     public ResponseEntity<?> getFileChunkMap(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID fileId) {
+            @PathVariable("fileId") UUID fileId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -250,7 +250,7 @@ public class ReplicaController {
     @GetMapping("/chunk/{chunkId}")
     public ResponseEntity<?> getChunkReplicas(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID chunkId) {
+            @PathVariable("chunkId") UUID chunkId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -282,7 +282,7 @@ public class ReplicaController {
     @GetMapping("/datanode/{datanodeId}")
     public ResponseEntity<?> getDataNodeReplicas(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable String datanodeId) {
+            @PathVariable("datanodeId") String datanodeId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -319,8 +319,8 @@ public class ReplicaController {
     @DeleteMapping("/chunk/{chunkId}/datanode/{datanodeId}")
     public ResponseEntity<?> deleteChunkReplica(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID chunkId,
-            @PathVariable String datanodeId) {
+            @PathVariable("chunkId") UUID chunkId,
+            @PathVariable("datanodeId") String datanodeId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -363,7 +363,7 @@ public class ReplicaController {
     @DeleteMapping("/chunk/{chunkId}")
     public ResponseEntity<?> deleteAllChunkReplicas(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID chunkId) {
+            @PathVariable("chunkId") UUID chunkId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -395,7 +395,7 @@ public class ReplicaController {
     @DeleteMapping("/datanode/{datanodeId}")
     public ResponseEntity<?> deleteDataNodeReplicas(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable String datanodeId) {
+            @PathVariable("datanodeId") String datanodeId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)

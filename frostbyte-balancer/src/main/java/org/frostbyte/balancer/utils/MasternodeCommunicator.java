@@ -1,6 +1,7 @@
-package org.frostbyte.datanode.utils;
+package org.frostbyte.balancer.utils;
 
-import org.frostbyte.datanode.models.configModel;
+
+import org.frostbyte.balancer.models.configModel;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
@@ -10,20 +11,20 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 @Component
-public class MasterNodeCommunicator {
+public class MasternodeCommunicator {
 
     private final configModel config;
     private final RestTemplate restTemplate = new RestTemplate();
     private final Logger log = Logger.getLogger(getClass().getName());
 
-    public MasterNodeCommunicator(configModel config) {
+    public MasternodeCommunicator(configModel config) {
         this.config = config;
     }
 
     public void registerWithMasters() {
         for (String node : config.getMasterNodes()) {
             try {
-                String url = "http://" + node + "/datanode/register";
+                String url = "http://" + node + "/balancer/register";
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.set("X-API-Key", config.getMasterAPIKey());
@@ -31,7 +32,7 @@ public class MasterNodeCommunicator {
                 Map<String, Object> body = Map.of(
                         "ip", config.getHost() + ":" + config.getPort(),
                         "nodeName", config.getNodeName(),
-                        "nodeType", "DataNode"
+                        "nodeType", "Balancer"
                 );
 
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
@@ -49,7 +50,7 @@ public class MasterNodeCommunicator {
     public void pingMasters() {
         for (String node : config.getMasterNodes()) {
             try {
-                String url = "http://" + node + "/datanode/heartbeat?nodeName=" + config.getNodeName();
+                String url = "http://" + node + "/balancer/heartbeat?nodeName=" + config.getNodeName();
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.set("X-API-Key", config.getMasterAPIKey());
@@ -69,3 +70,4 @@ public class MasterNodeCommunicator {
     }
 
 }
+

@@ -148,26 +148,27 @@ public class Masternode_controller {
 
         Vector<DataNode> aliveNodes = hr.getAliveDataNodes();
 
-        class DataNodeList {
-            String host;
-            String nodeName;
+        if (aliveNodes.isEmpty()) {
+            return ResponseEntity.status(200).body(Map.of(
+                    "aliveNodes", "NULL",
+                    "Timestamp", LocalDateTime.now()
+            ));
         }
 
-        Vector<DataNodeList> output = new Vector<>();
-
-        if (aliveNodes.isEmpty())
-            return ResponseEntity.status(200).body(Map.of("aliveNodes", "NULL", "Timestamp", LocalDateTime.now()));
-
-        for  (DataNode dn : aliveNodes) {
-            DataNodeList nl = new DataNodeList();
-            nl.host = dn.getHost();
-            nl.nodeName = dn.getNodeName();
-
-            output.add(nl);
+        var output = new Vector<Map<String, String>>();
+        for (DataNode dn : aliveNodes) {
+            output.add(Map.of(
+                    "host", dn.getHost(),
+                    "nodeName", dn.getNodeName()
+            ));
         }
 
-        return ResponseEntity.status(200).body(Map.of("aliveNodes", output, "Timestamp", LocalDateTime.now()));
+        return ResponseEntity.status(200).body(Map.of(
+                "aliveNodes", output,
+                "Timestamp", LocalDateTime.now()
+        ));
     }
+
 
     @GetMapping("/balancer/getAlive")
     public ResponseEntity<?> getAliveBalancers(@RequestHeader(API_HEADER) String apiKey) {
@@ -175,26 +176,28 @@ public class Masternode_controller {
 
         Vector<BalancerNode> aliveNodes = hr.getAliveBalancers();
 
-        class BalancerNodeList {
-            String host;
-            String nodeName;
+        if (aliveNodes.isEmpty()) {
+            return ResponseEntity.status(200).body(Map.of(
+                    "aliveNodes", "NULL",
+                    "Timestamp", LocalDateTime.now()
+            ));
         }
 
-        Vector<BalancerNodeList> output = new Vector<>();
-
-        if (aliveNodes.isEmpty())
-            return ResponseEntity.status(200).body(Map.of("aliveNodes", "NULL", "Timestamp", LocalDateTime.now()));
-
+        // build list of node info
+        var output = new Vector<Map<String, String>>();
         for (BalancerNode bn : aliveNodes) {
-            BalancerNodeList nl = new BalancerNodeList();
-            nl.host = bn.getHost();
-            nl.nodeName = bn.getNodeName();
-
-            output.add(nl);
+            output.add(Map.of(
+                    "host", bn.getHost(),
+                    "nodeName", bn.getNodeName()
+            ));
         }
 
-        return ResponseEntity.status(200).body(Map.of("aliveNodes", output, "Timestamp", LocalDateTime.now()));
+        return ResponseEntity.status(200).body(Map.of(
+                "aliveNodes", output,
+                "Timestamp", LocalDateTime.now()
+        ));
     }
+
 
 
 

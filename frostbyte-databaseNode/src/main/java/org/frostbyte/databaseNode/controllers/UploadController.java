@@ -163,7 +163,7 @@ public class UploadController {
     @PutMapping("/session/{sessionId}/status")
     public ResponseEntity<?> updateSessionStatus(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID sessionId,
+            @PathVariable("sessionId") UUID sessionId,
             @RequestBody Map<String, String> statusUpdate) {
 
         if (!isAuthorized(apiKey)) {
@@ -207,7 +207,7 @@ public class UploadController {
     @PostMapping("/session/{sessionId}/complete")
     public ResponseEntity<?> completeSession(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID sessionId) {
+            @PathVariable("sessionId") UUID sessionId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -244,7 +244,7 @@ public class UploadController {
     @PutMapping("/session/{sessionId}/balancer")
     public ResponseEntity<?> setBalancerNode(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID sessionId,
+            @PathVariable("sessionId") UUID sessionId,
             @RequestBody Map<String, String> balancerInfo) {
 
         if (!isAuthorized(apiKey)) {
@@ -286,7 +286,7 @@ public class UploadController {
     @GetMapping("/session/{sessionId}/status")
     public ResponseEntity<?> getSessionStatus(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID sessionId) {
+            @PathVariable("sessionId") UUID sessionId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -321,7 +321,7 @@ public class UploadController {
     @GetMapping("/file/{fileId}")
     public ResponseEntity<?> getFileInfo(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID fileId) {
+            @PathVariable("fileId") UUID fileId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -403,7 +403,7 @@ public class UploadController {
     @DeleteMapping("/file/{fileId}")
     public ResponseEntity<?> deleteFile(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID fileId) {
+            @PathVariable("fileId") UUID fileId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -436,7 +436,7 @@ public class UploadController {
     @DeleteMapping("/session/{sessionId}")
     public ResponseEntity<?> deleteSession(
             @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable UUID sessionId) {
+            @PathVariable("sessionId") UUID sessionId) {
 
         if (!isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)

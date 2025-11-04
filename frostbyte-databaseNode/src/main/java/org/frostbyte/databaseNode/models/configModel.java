@@ -1,8 +1,12 @@
 package org.frostbyte.databaseNode.models;
 
 import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @Data
+@Component
+@ConfigurationProperties(prefix = "frostbyte.databasenode")
 public class configModel {
     private DatabaseDetails database;
 

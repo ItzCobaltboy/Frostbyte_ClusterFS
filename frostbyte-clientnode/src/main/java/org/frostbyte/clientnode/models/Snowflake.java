@@ -50,6 +50,19 @@ public class Snowflake {
 
     // -------------------- Serialize to .snowflake File --------------------
     public File toSnowflakeFile() throws IOException {
+        byte[] bytes = toByteArray();
+        File tempFile = File.createTempFile(snowflakeUuid, ".snowflake");
+        Files.write(tempFile.toPath(), bytes);
+        return tempFile;
+    }
+
+    // -------------------- Serialize to byte array (in-memory) --------------------
+    /**
+     * Serialize the Snowflake to a byte array without creating a temp file.
+     * This is more efficient for network transfers.
+     * @return byte array containing the serialized snowflake
+     */
+    public byte[] toByteArray() throws IOException {
         String metaJson = mapper.writeValueAsString(toMetaMap());
         byte[] metaBytes = metaJson.getBytes("UTF-8");
 
@@ -61,9 +74,7 @@ public class Snowflake {
         baos.write(metaBytes);
         baos.write(encryptedData);
 
-        File tempFile = File.createTempFile(snowflakeUuid, ".snowflake");
-        Files.write(tempFile.toPath(), baos.toByteArray());
-        return tempFile;
+        return baos.toByteArray();
     }
 
     // -------------------- Deserialize from .snowflake File --------------------
