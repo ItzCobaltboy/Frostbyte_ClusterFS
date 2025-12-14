@@ -40,7 +40,6 @@ public class Snowflake {
         this.encryptedData = encryptedData;
         this.crcChecksum = calculateCRC(encryptedData);
     }
-
     // -------------------- CRC --------------------
     private long calculateCRC(byte[] data) {
         CRC32 crc = new CRC32();
@@ -80,6 +79,18 @@ public class Snowflake {
     // -------------------- Deserialize from .snowflake File --------------------
     public static Snowflake fromSnowflakeFile(File file) throws IOException {
         byte[] allBytes = Files.readAllBytes(file.toPath());
+        return fromByteArray(allBytes);
+    }
+
+    // -------------------- Deserialize from byte array (in-memory) --------------------
+    /**
+     * Deserialize a Snowflake from a byte array (in-memory deserialization).
+     * This is more efficient for network transfers.
+     * @param allBytes byte array containing the serialized snowflake
+     * @return Snowflake object
+     * @throws IOException if deserialization fails or CRC validation fails
+     */
+    public static Snowflake fromByteArray(byte[] allBytes) throws IOException {
         ByteBuffer buffer = ByteBuffer.wrap(allBytes);
 
         long metaLength = buffer.getLong();

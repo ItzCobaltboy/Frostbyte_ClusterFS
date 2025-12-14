@@ -94,6 +94,9 @@ public class ReplicaService {
         try {
             String url = databaseNodeUrl + "/replicas/register/batch";
 
+            log.info(String.format("[REPLICA-REGISTER-START] chunkId=%s datanodeIds=%s url=%s",
+                    chunkId, datanodeIds, url));
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-API-Key", config.getMasterAPIKey());
@@ -102,9 +105,14 @@ public class ReplicaService {
             requestBody.put("chunkId", chunkId);
             requestBody.put("datanodeIds", datanodeIds);
 
+            log.info(String.format("[REPLICA-REGISTER-REQUEST] body=%s", requestBody));
+
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
             ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
+
+            log.info(String.format("[REPLICA-REGISTER-RESPONSE] status=%d body=%s",
+                    response.getStatusCode().value(), response.getBody()));
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 log.info("Successfully registered " + datanodeIds.size() + " replicas for chunk " + chunkId);
@@ -115,7 +123,8 @@ public class ReplicaService {
             }
 
         } catch (Exception e) {
-            log.severe("Error registering replicas in database: " + e.getMessage());
+            log.severe(String.format("[REPLICA-REGISTER-ERROR] chunkId=%s error=%s", chunkId, e.getMessage()));
+            e.printStackTrace();
             return false;
         }
     }

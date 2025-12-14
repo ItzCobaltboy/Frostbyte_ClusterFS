@@ -98,14 +98,17 @@ public class ChunkMetadataService {
 
         // ========== UPDATE UPLOAD SESSION PROGRESS ==========
 
-        // Find upload session by file's sessionId
+        // Atomically increment chunks received counter (prevents race condition)
+        Timestamp now = Timestamp.from(Instant.now());
+        int rowsUpdated = uploadSessionRepository.incrementChunksReceived(file.getSessionId(), now);
+
+        if (rowsUpdated == 0) {
+            throw new IllegalArgumentException("Upload session not found: " + file.getSessionId());
+        }
+
+        // Fetch updated session to log progress
         UploadSession session = uploadSessionRepository.findById(file.getSessionId())
                 .orElseThrow(() -> new IllegalArgumentException("Upload session not found: " + file.getSessionId()));
-
-        // Increment chunks received counter
-        session.setChunksReceived(session.getChunksReceived() + 1);
-        session.setUpdatedAt(Timestamp.from(Instant.now()));
-        uploadSessionRepository.save(session);
 
         log.info("Upload session updated. Chunks received: " + session.getChunksReceived() +
                 "/" + file.getTotalChunks());

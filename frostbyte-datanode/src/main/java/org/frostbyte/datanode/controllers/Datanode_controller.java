@@ -57,7 +57,12 @@ public class Datanode_controller {
             Path snowflakeFolder = Paths.get(config.getSnowflakeFolder());
             Files.createDirectories(snowflakeFolder);
 
-            Path targetFile = snowflakeFolder.resolve(Objects.requireNonNull(file.getOriginalFilename()));
+            String originalFilename = file.getOriginalFilename();
+            log.info(String.format("[UPLOAD-REQUEST] originalFilename=%s size=%d", originalFilename, file.getSize()));
+
+            Path targetFile = snowflakeFolder.resolve(Objects.requireNonNull(originalFilename));
+            log.info(String.format("[UPLOAD-SAVING] targetFile=%s", targetFile));
+
             if (targetFile.toFile().exists()) {
                 log.info("File " + targetFile + " already exists.");
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(
@@ -66,7 +71,7 @@ public class Datanode_controller {
             }
             file.transferTo(targetFile);
 
-            log.info("Received snowflake: " + targetFile.getFileName());
+            log.info(String.format("[UPLOAD-SUCCESS] saved as: %s", targetFile.getFileName()));
             return ResponseEntity.ok(Map.of("status", "success",
                                             "snowflakeName", file.getOriginalFilename(),
                                             "message", "snowflake uploaded successfully"));
@@ -90,7 +95,19 @@ public class Datanode_controller {
             Path snowflakeFolder = Paths.get(config.getSnowflakeFolder());
             Path filePath = snowflakeFolder.resolve(fileName).normalize();
 
+            log.info(String.format("[DOWNLOAD-REQUEST] snowflake_name=%s resolvedPath=%s", fileName, filePath));
+
             if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+                // Log what files actually exist for debugging
+                try {
+                    log.warning(String.format("[FILE-NOT-FOUND] requested=%s folder=%s", fileName, snowflakeFolder));
+                    if (Files.exists(snowflakeFolder)) {
+                        log.info("[EXISTING-FILES] Files in folder:");
+                        Files.list(snowflakeFolder).forEach(f -> log.info("  - " + f.getFileName()));
+                    }
+                } catch (Exception listEx) {
+                    log.warning("Could not list files: " + listEx.getMessage());
+                }
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("snowflake not found.");
             }
 

@@ -4,10 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.frostbyte.clientnode.models.Snowflake;
 import org.frostbyte.clientnode.models.configModel;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -17,6 +14,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -107,6 +105,66 @@ public class BalancerNodeClient {
             return bodyMap;
         } catch (Exception e) {
             log.log(Level.SEVERE, "[BALANCER-UPLOAD-EX] Failed to upload snowflake to balancer", e);
+            throw e;
+        }
+    }
+
+    /**
+     * Download a chunk from BalancerNode.
+     * BalancerNode will select an available replica, validate CRC, and return encrypted snowflake.
+     *
+     * @param balancerHost host:port of the balancer (with or without http://)
+     * @param fileId UUID string of the file
+     * @param chunkId UUID string of the chunk
+     * @param chunkNumber sequence number of the chunk
+     * @return byte array containing the encrypted snowflake
+     * @throws Exception if download fails
+     */
+    public byte[] downloadChunkFromBalancer(String balancerHost, String fileId, String chunkId, int chunkNumber) throws Exception {
+        String host = balancerHost;
+        if (!host.startsWith("http://") && !host.startsWith("https://")) {
+            host = "http://" + host;
+        }
+        String endpoint = host + (host.endsWith("/") ? "" : "/") + "balancer/download/chunk";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        if (config.getMasterAPIKey() != null) {
+            headers.set("X-API-Key", config.getMasterAPIKey());
+        }
+
+        // Create request body
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("fileId", fileId);
+        requestBody.put("chunkId", chunkId);
+        requestBody.put("chunkNumber", chunkNumber);
+
+        String json = mapper.writeValueAsString(requestBody);
+        HttpEntity<String> entity = new HttpEntity<>(json, headers);
+
+        try {
+            Instant start = Instant.now();
+            log.fine(String.format("[BALANCER-DOWNLOAD-REQ] POST %s chunkId=%s chunkNumber=%d",
+                    endpoint, chunkId, chunkNumber));
+
+            ResponseEntity<byte[]> resp = rest.exchange(endpoint, HttpMethod.POST, entity, byte[].class);
+            long ms = Duration.between(start, Instant.now()).toMillis();
+
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+                String msg = "Balancer download failed with status " + resp.getStatusCode().value();
+                log.severe("[BALANCER-DOWNLOAD-ERR] " + msg);
+                throw new RuntimeException(msg);
+            }
+
+            byte[] snowflakeBytes = resp.getBody();
+            log.info(String.format("[BALANCER-DOWNLOAD-SUCCESS] chunkId=%s chunkNumber=%d size=%d timeMs=%d",
+                    chunkId, chunkNumber, snowflakeBytes.length, ms));
+
+            return snowflakeBytes;
+
+        } catch (Exception e) {
+            log.log(Level.SEVERE, String.format("[BALANCER-DOWNLOAD-EX] Failed to download chunk chunkId=%s chunkNumber=%d",
+                    chunkId, chunkNumber), e);
             throw e;
         }
     }

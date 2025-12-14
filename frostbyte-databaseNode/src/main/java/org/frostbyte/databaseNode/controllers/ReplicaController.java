@@ -5,12 +5,15 @@ import org.frostbyte.databaseNode.models.ReplicaStatus;
 import org.frostbyte.databaseNode.models.configModel;
 import org.frostbyte.databaseNode.models.dto.FileMapDTO;
 import org.frostbyte.databaseNode.models.dto.ReplicaInfoDTO;
+import org.frostbyte.databaseNode.repositories.ChunkRepository;
 import org.frostbyte.databaseNode.services.ChunkMetadataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -21,13 +24,17 @@ import java.util.logging.Logger;
 public class ReplicaController {
 
     private final ChunkMetadataService chunkMetadataService;
+    private final ChunkRepository chunkRepository;
     private final configModel config;
     private static final Logger log = Logger.getLogger(ReplicaController.class.getName());
     private static final String API_HEADER = "X-API-Key";
 
     @Autowired
-    public ReplicaController(ChunkMetadataService chunkMetadataService, configModel config) {
+    public ReplicaController(ChunkMetadataService chunkMetadataService,
+                             ChunkRepository chunkRepository,
+                             configModel config) {
         this.chunkMetadataService = chunkMetadataService;
+        this.chunkRepository = chunkRepository;
         this.config = config;
     }
 
@@ -102,12 +109,17 @@ public class ReplicaController {
             @RequestHeader(value = API_HEADER) String apiKey,
             @RequestBody Map<String, Object> batchData) {
 
+        log.info("[BATCH-REPLICA-REQ] Received batch replica registration request");
+        log.info("[BATCH-REPLICA-REQ] batchData=" + batchData);
+
         if (!isAuthorized(apiKey)) {
+            log.warning("[BATCH-REPLICA-REQ] Unauthorized API key");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Forbidden: Invalid API key"));
         }
 
         if (!batchData.containsKey("chunkId") || !batchData.containsKey("datanodeIds")) {
+            log.warning("[BATCH-REPLICA-REQ] Missing required fields: chunkId or datanodeIds");
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Chunk ID and Datanode IDs list are required"));
         }
@@ -117,35 +129,62 @@ public class ReplicaController {
             @SuppressWarnings("unchecked")
             List<String> datanodeIds = (List<String>) batchData.get("datanodeIds");
 
+            log.info(String.format("[BATCH-REPLICA-REQ] chunkId=%s datanodeIds=%s", chunkId, datanodeIds));
+
+            // Check if chunk exists
+            boolean chunkExists = chunkRepository.existsById(chunkId);
+            log.info(String.format("[BATCH-REPLICA-REQ] Chunk exists check: chunkId=%s exists=%s", chunkId, chunkExists));
+
+            if (!chunkExists) {
+                log.severe(String.format("[BATCH-REPLICA-REQ] CHUNK NOT FOUND in database: chunkId=%s", chunkId));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Chunk not found in database: " + chunkId,
+                                "chunkId", chunkId));
+            }
+
             int successCount = 0;
             int failureCount = 0;
+            List<String> errors = new ArrayList<>();
 
             for (String datanodeId : datanodeIds) {
                 try {
+                    log.info(String.format("[REPLICA-REGISTER] Attempting: chunkId=%s datanodeId=%s", chunkId, datanodeId));
+
                     ReplicaInfoDTO replicaInfo = new ReplicaInfoDTO();
                     replicaInfo.setDatanodeId(datanodeId);
                     replicaInfo.setStatus(ReplicaStatus.AVAILABLE);
 
-                    chunkMetadataService.registerReplica(chunkId, replicaInfo);
+                    ChunkReplica saved = chunkMetadataService.registerReplica(chunkId, replicaInfo);
                     successCount++;
+                    log.info(String.format("[REPLICA-REGISTER-SUCCESS] replicaId=%d chunkId=%s datanodeId=%s",
+                            saved.getId(), chunkId, datanodeId));
                 } catch (Exception e) {
-                    log.warning("Failed to register replica for chunk " + chunkId + " on datanode " + datanodeId + ": " + e.getMessage());
+                    String error = "Failed to register replica for chunk " + chunkId + " on datanode " + datanodeId + ": " + e.getMessage();
+                    log.warning("[REPLICA-REGISTER-FAILED] " + error);
+                    e.printStackTrace();
+                    errors.add(error);
                     failureCount++;
                 }
             }
 
-            log.info("Batch replica registration: " + successCount + " succeeded, " + failureCount + " failed for chunk " + chunkId);
+            log.info(String.format("[BATCH-REPLICA-COMPLETE] chunkId=%s succeeded=%d failed=%d",
+                    chunkId, successCount, failureCount));
 
-            return ResponseEntity.ok(Map.of(
-                    "chunkId", chunkId,
-                    "totalRequested", datanodeIds.size(),
-                    "succeeded", successCount,
-                    "failed", failureCount,
-                    "message", "Batch replica registration completed"
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("chunkId", chunkId);
+            response.put("totalRequested", datanodeIds.size());
+            response.put("succeeded", successCount);
+            response.put("failed", failureCount);
+            response.put("message", "Batch replica registration completed");
+            if (!errors.isEmpty()) {
+                response.put("errors", errors);
+            }
+
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.severe("Failed to process batch replica registration: " + e.getMessage());
+            log.severe("[BATCH-REPLICA-ERROR] Failed to process batch replica registration: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to process batch registration: " + e.getMessage()));
         }
@@ -258,8 +297,9 @@ public class ReplicaController {
         }
 
         try {
-            List<ChunkReplica> replicas = chunkMetadataService.getReplicasOnDataNode("dummy"); // We need a method to get by chunkId
-            // Note: You'll need to add getReplicasByChunkId method to ChunkMetadataService
+            List<ChunkReplica> replicas = chunkMetadataService.getReplicasByChunkId(chunkId);
+
+            log.info(String.format("Retrieved %d replicas for chunk: %s", replicas.size(), chunkId));
 
             return ResponseEntity.ok(Map.of(
                     "chunkId", chunkId,
@@ -268,9 +308,13 @@ public class ReplicaController {
                     "message", "Chunk replicas retrieved successfully"
             ));
 
-        } catch (Exception e) {
-            log.warning("Failed to get chunk replicas: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.warning("Chunk not found: " + chunkId);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Chunk not found: " + chunkId));
+        } catch (Exception e) {
+            log.severe("Failed to get chunk replicas: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to get chunk replicas: " + e.getMessage()));
         }
     }

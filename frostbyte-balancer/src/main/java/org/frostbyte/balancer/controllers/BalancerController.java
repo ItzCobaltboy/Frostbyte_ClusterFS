@@ -4,9 +4,11 @@ import org.frostbyte.balancer.models.DataNodeInfo;
 import org.frostbyte.balancer.models.configModel;
 import org.frostbyte.balancer.services.DataNodeService;
 import org.frostbyte.balancer.services.DatabaseNodeService;
+import org.frostbyte.balancer.services.DownloadService;
 import org.frostbyte.balancer.services.ReplicaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,6 +27,7 @@ public class BalancerController {
     private final DataNodeService dataNodeService;
     private final ReplicaService replicaService;
     private final DatabaseNodeService databaseNodeService;
+    private final DownloadService downloadService;
     private static final Logger log = Logger.getLogger(BalancerController.class.getName());
     private static final String API_HEADER = "X-API-Key";
 
@@ -35,11 +38,13 @@ public class BalancerController {
     public BalancerController(configModel config,
                               DataNodeService dataNodeService,
                               ReplicaService replicaService,
-                              DatabaseNodeService databaseNodeService) {
+                              DatabaseNodeService databaseNodeService,
+                              DownloadService downloadService) {
         this.config = config;
         this.dataNodeService = dataNodeService;
         this.replicaService = replicaService;
         this.databaseNodeService = databaseNodeService;
+        this.downloadService = downloadService;
     }
 
     private boolean isAuthorized(String apiKey) {
@@ -164,6 +169,7 @@ public class BalancerController {
 
             if (!registered) {
                 response.put("warning", "Replicas uploaded but registration in database failed");
+                log.warning("Failed to register replicas in database");
                 return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT).body(response);
             }
 
@@ -220,6 +226,78 @@ public class BalancerController {
                 "nodeName", config.getNodeName(),
                 "replicaCount", config.getReplicaCount()
         ));
+    }
+
+    /**
+     * Download chunk endpoint
+     * Accepts a chunk download request, selects an available replica,
+     * downloads from DataNode, validates CRC32, and returns encrypted snowflake
+     *
+     * POST /balancer/download/chunk
+     *
+     * Request Body:
+     * {
+     *   "fileId": "uuid",
+     *   "chunkId": "uuid",
+     *   "chunkNumber": 0
+     * }
+     *
+     * Response:
+     * - Binary snowflake data (encrypted chunk with metadata)
+     * - HTTP 200 OK on success
+     * - HTTP 404 NOT FOUND if no replicas available
+     * - HTTP 500 INTERNAL SERVER ERROR if all replicas fail CRC validation
+     */
+    @PostMapping(value = "/download/chunk", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public ResponseEntity<?> downloadChunk(
+            @RequestHeader(value = API_HEADER) String apiKey,
+            @RequestBody Map<String, Object> requestBody) {
+
+        if (!isAuthorized(apiKey)) {
+            log.warning("Unauthorized chunk download attempt");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Forbidden: Invalid API key".getBytes());
+        }
+
+        // Validate request body
+        if (!requestBody.containsKey("fileId") || !requestBody.containsKey("chunkId") || !requestBody.containsKey("chunkNumber")) {
+            return ResponseEntity.badRequest()
+                    .body("Missing required fields: fileId, chunkId, chunkNumber".getBytes());
+        }
+
+        String fileId = requestBody.get("fileId").toString();
+        String chunkId = requestBody.get("chunkId").toString();
+        int chunkNumber = Integer.parseInt(requestBody.get("chunkNumber").toString());
+
+        log.info(String.format("[CHUNK-REQUEST] fileId=%s chunkId=%s chunkNumber=%d", fileId, chunkId, chunkNumber));
+
+        try {
+            // Download chunk with automatic replica selection and failover
+            byte[] snowflakeBytes = downloadService.downloadChunk(fileId, chunkId, chunkNumber);
+
+            log.info(String.format("[CHUNK-RESPONSE] chunkId=%s snowflakeSize=%d", chunkId, snowflakeBytes.length));
+
+            // Return encrypted snowflake as binary data
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentLength(snowflakeBytes.length)
+                    .body(snowflakeBytes);
+
+        } catch (DownloadService.ChunkDownloadException e) {
+            log.severe(String.format("[CHUNK-DOWNLOAD-FAILED] chunkId=%s error=%s", chunkId, e.getMessage()));
+
+            if (e.getMessage().contains("No replicas found") || e.getMessage().contains("No available replicas")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(("Chunk not found or no replicas available: " + e.getMessage()).getBytes());
+            }
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(("Chunk download failed: " + e.getMessage()).getBytes());
+        } catch (Exception e) {
+            log.severe(String.format("[CHUNK-DOWNLOAD-ERROR] chunkId=%s error=%s", chunkId, e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(("Internal server error: " + e.getMessage()).getBytes());
+        }
     }
 }
 

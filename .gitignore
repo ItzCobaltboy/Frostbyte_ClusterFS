@@ -27,6 +27,10 @@ replay_pid*
 
 # IntelliJ Idea Trash
 .idea/
+.claude/
+chunk_sequencing.md
+download.md
+download_pipeline.md
 
 # Runtime Trash
 config.json
