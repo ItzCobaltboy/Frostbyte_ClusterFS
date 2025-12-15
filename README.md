@@ -4,7 +4,7 @@ Frostbyte Cluster File Service (Frostbyte for short) is a **fully encrypted** di
 
 Inspired from AWS S3, Frostbyte offers a simple and intuitive API for storing and retrieving files across a cluster of servers.
 
-> Yes, Frostbyte can safely operate on **non-TLS / unsecured networks** without risking data exposure.
+> Yes, Frostbyte can safely operate on **non-TLS / unsecured networks** without risking data exposure. [See below](https://github.com/ItzCobaltboy/Frostbyte_ClusterFS/tree/main?tab=readme-ov-file#security-model)
 
 ## Features
 - **Distributed Storage**: Files are distributed across multiple Datanodes in the cluster to ensure redundancy and high availability.
