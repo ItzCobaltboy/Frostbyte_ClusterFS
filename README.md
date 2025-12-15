@@ -1,239 +1,171 @@
-# ☁️ Frostbyte ClusterFS Plan
+# Frostbyte Cluster File Service
 
-## 🔥 Project Summary
+Frostbyte Cluster File Service (Frostbyte for short) is a **fully encrypted** distributed file storage solution designed to provide high availability, scalability, and performance for mid to large-scale application. 
 
-A distributed, encrypted, chunked object storage system — S3-style — with fully modular microservices. Written in Java + Spring Boot, deployed via Docker. Every file is streamed, split into chunks, encrypted, and distributed across multiple DataNodes with redundancy and zero-trust pipeline. All files are encrypted as soon as they reach the system using dynamically generated keys, the keys themsselves are stored encrypted in the database, thus employing a zero trust infra architecture. Autoscale friendly, packages into `.jar` for easy deployment and launch, with support for external editable `config.json` and dockerfile for quick and easy deployment. 
+Inspired from AWS S3, Frostbyte offers a simple and intuitive API for storing and retrieving files across a cluster of servers.
 
----
+> Yes, Frostbyte can safely operate on **non-TLS / unsecured networks** without risking data exposure.
 
-## 🧱 Node Architecture
+## Features
+- **Distributed Storage**: Files are distributed across multiple Datanodes in the cluster to ensure redundancy and high availability.
 
-### 1. **ClientNode** (Public API Gateway)
+- **Per Chunk Encryption**: Each file chunk is encrypted individually using AES-256 encryption before being stored, ensuring data security with RSA based key exchange.
 
-* Receives file uploads/download requests
-* Streams files to Balancer
-* Interfaces with users, initiates sessions
-* Pings MasterNode for Balancer IP
-* Handles:
+- **Security First Design**: Each file is encrypted as soon as it is received at client, minimizing the risk of data exposure or leak.
 
-    * Upload session start
-    * Stream-to-chunk pipeline
-    * Download session reconstruction
+- **Scalability**: Easily add or remove Datanodes to scale storage capacity and performance as needed.
 
-### 2. **BalancerNode** (Core logic)
+- **Fault Tolerance**: Automatic replication and recovery mechanisms to handle Datanode failures without data loss.
 
-* Handles upload/download sessions
-* Splits file into chunks
-* Allocates chunks to DataNodes with redundancy
-* Tracks chunk placement for rollback and downloads
-* Coordinates chunk distribution, retry, rollback
-* Manages replica logic using Latin rectangle pattern
-
-### 3. **DataNode** (Storage unit)
-
-* Stores chunk binary data
-* Responds to chunk fetch requests
-* Sends periodic heartbeats to MasterNode
-* Rejects uploads if near full
-* Can delete chunks if rollback triggered
-
-### 4. **MasterNode** (Coordinator)
-
-* Receives heartbeats from all nodes
-* Maintains alive node registry
-* Provides ClientNode and BalancerNode with list of alive nodes
-* Detects failure via missed heartbeat
-
-### 5. **DatabaseNode** (Metadata DB)
-
-* RDBMS (Postgres or similar)
-* Stores:
-
-    * User data
-    * File metadata
-    * Chunk-to-datanode map
-    * Upload/download sessions
-    * Encrypted AES keys for chunks
+- **Simple API**: RESTful API for easy integration with applications and services
 
 ---
 
-## 📦 Key Components
+## Getting Started
+### Distribution Setup (Recommended)
+1. Download the release package from the [GitHub Releases](PLACEHOLDER) along with Java Runtime.
+2. Zip file contains 5 folders with 5 jars, configure applications.properties file in each folder as per your cluster setup.
+3. Start the Masternode first, followed by DatabaseNode, Datanodes, BalancerNodes, and finally ClientNodes.
+    - The Order of starting nodes is important to ensure proper registration and communication.
+    - If using multiple servers/Docker, make sure to initialize port forwarding correctly
+4. Launch the jar files using the command:
+```terminal
+java -jar Frostbyte-<NodeType>.jar
+```
 
-### 📄 Chunk Object
 
-```java
-Chunk {
-  UUID chunk_id;
-  UUID file_id;
-  int chunk_number;
-  byte[] binaryData; // streamed, not stored in memory long
-  String owner;
-  boolean encrypted;
-  EncryptedAESKey aes_key;
+### Installation from Source
+
+This project uses Maven for dependency management and build automation. Ensure you have Java and Maven installed on your system.
+
+1. Clone the repository:
+```terminal
+git clone https://github.com/ItzCobaltboy/Frostbyte_ClusterFS
+```
+2. Navigate to the project directory and build the project using Maven:
+```terminal
+mvn clean install
+```
+3. Configure the `application.properties` file in each module as per your cluster setup.
+4. CD into each module's target directory and launch the jar files using the command:
+```terminal
+java -jar Frostbyte-<NodeType>.jar
+```
+5. Start the nodes in the following order: Masternode, DatabaseNode, Datanodes, BalancerNodes, and ClientNodes.
+
+---
+
+## Architecture
+Frostbyte has a microservices-based architecture consisting of the following key components:
+- **ClientNode** : The public facing component that handles client requests for file uploads and downloads. It managed file chunking and encryption.
+- **BalancerNode** : Distributes incoming file chunks from ClientNodes to available Datanodes based on load and availability. Using Latin Rectangle based allocation algorithm for optimal distribution and high failure tolerance.
+- **Datanode** : Responsible for storing encrypted file chunks and handling retrieval requests. Each Datanode maintains its own storage.
+- **Masternode** : Centralized management component that maintains Node statuses. Designed to support real-time addition and removal of Nodes.
+- **DatabaseNode** : PostgreSQL based database wrapper for securely storing metadata about files, chunks, encryption keys, and their locations across the cluster.
+
+---
+
+## API Doc (End User)
+### Upload File
+Upload a file to the Frostbyte cluster.  
+The file is streamed, encrypted per chunk, and distributed automatically.
+
+#### Endpoint: 
+- POST `/public/upload`
+#### Request
+- **Content-Type:** `multipart/form-data`
+#### Form Parameters
+
+| Name        | Type   | Required | Description |
+|------------|--------|----------|-------------|
+| file       | File   | Yes      | File to upload |
+| totalChunks| Number | No       | Optional hint for total chunks (auto-calculated if omitted) |
+#### Response
+**HTTP 200 OK**
+```json
+{
+  "status": "success",
+  "fileId": "uuid",
+  "sessionId": "uuid",
+  "filename": "example.pdf",
+  "totalChunks": 12,
+  "durationMs": 4821
 }
 ```
+### Download File
 
-### 🔐 Encryption Logic
+Download a file from Frostbyte cluster using its `fileId`
 
-* Every chunk:
+#### Endpoint:
+- GET `/public/download/{fileId}`
+#### Response
+- Content-type: `application/octet_stream`
 
-    * AES encrypted with a new key
-    * AES key encrypted with master key
-    * Encrypted AES key stored in DB
-* All node-to-node transfers use encrypted streams
-
----
-
-## 🔁 Upload Flow (Full Streaming)
-
-1. ClientNode → `/upload/start` → get Balancer IP from Master
-2. Stream file chunk-by-chunk to Balancer
-3. Balancer splits, assigns UUIDs
-4. Allocator assigns chunks to nodes using Latin rectangle logic
-5. Chunks stored in DataNodes → ACK to Balancer
-6. Balancer stores map in DB via DatabaseNode
-7. If upload fails, Balancer rolls back stored chunks
-
-## 🔁 Download Flow
-
-1. ClientNode → `/download/start?file_id`
-2. Balancer retrieves chunk map from DB
-3. Streams chunks in order from DataNodes
-4. Streams final reconstructed file back to user
+> For Developers, full API doc is [here](PLACEHOLDER).
 
 ---
 
-## 🧠 Chunk Allocation Logic
+## Security Model
 
-* For file with M chunks, and N datanodes:
-* Want R replicas, R <= N
-* Create R random permutations of length M
-* Ensure no two permutations have same element at same index
-* Assign accordingly:
+Frostbyte is designed to safely operate on non-TLS and otherwise unsecured networks due to its encryption-first architecture.
 
-```json
-"chunk_0": ["Node1", "Node2"],
-"chunk_1": ["Node2", "Node3"]
-```
+### Core Principles
 
----
+- All files are streamed, chunked, and encrypted at the **ClientNode** before being transmitted to any other component.
+- Each file chunk is encrypted using a **unique AES-256 key**, generated per chunk by the DatabaseNode.
+- AES keys are exchanged using **RSA-based key exchange** over HTTP.
+- A **new ephemeral RSA key pair** is generated for every upload and download session.
+- No node in the cluster other than the ClientNode ever has access to plaintext data.
 
-## 🗄️ Database Schema (RDBMS)
+As a result, the Frostbyte cluster remains cryptographically blind to file contents at all times.
 
-### `users`
+### Threat Model & Mitigations
 
-* user\_id (PK)
-* name, email, password\_hash
+#### 1. Server Compromise
 
-### `files`
+If one or more DataNodes are compromised:
 
-* file\_id (PK)
-* user\_id (FK)
-* filename
-* created\_at
-* total\_chunks
+- All stored chunks are encrypted using unique per-chunk keys.
+- By default, no single DataNode stores all chunks of a file.
+- Compromising a DataNode does not provide sufficient information to reconstruct file contents.
 
-### `chunks`
+This significantly raises the cost of data exfiltration, even under partial cluster compromise.
 
-* chunk\_id (PK)
-* file\_id (FK)
-* chunk\_number (ordering index)
+#### 2. Man-in-the-Middle (MITM) Attacks
 
-### `replicas`
+If the network itself is compromised (e.g. non-TLS, hostile internal network):
 
-* chunk\_id (FK)
-* datanode\_id
+- All file data is already encrypted before leaving the ClientNode.
+- Intercepted traffic does not reveal plaintext file contents.
+- Encryption keys are exchanged using session-scoped RSA key pairs.
+- RSA keys are never reused across sessions.
 
-### `keys`
+This prevents both passive eavesdropping and key disclosure over the network.
 
-* chunk\_id (FK)
-* encrypted\_aes\_key (Base64/Hex)
 
-### `upload_sessions`
+### Trust Boundary Summary
 
-* session\_id (PK)
-* file\_id (FK)
-* start\_time
-* status
+| Component      | Can See Plaintext |
+|----------------|------------------|
+| ClientNode     | Yes |
+| BalancerNode   | No |
+| DataNode       | No |
+| DatabaseNode   | No |
+| Network        | No |
 
----
+### Out of Scope
 
-## 💼 Node-Specific Algorithms
+Frostbyte does not attempt to actively defend against:
+- Malicious or compromised ClientNodes
+- Compromised JVM runtimes or host operating systems
+- Side-channel or hardware-level attacks
 
-### 🔵 MasterNode
+--- 
 
-* `registerNode(node_id, type, ip, port)`
-* `receiveHeartbeat(node_id, storage_pct, timestamp)`
-* `getAliveNodes()` → filter by type
+## Known Issues/Scope for improvement
 
-### 🟠 BalancerNode
-
-* `startUploadSession(file_metadata)`
-* `allocateChunks(List<chunk>, replicas)`
-* `streamChunk(chunk, datanode)`
-* `rollback(session_id)`
-
-### 🟣 DataNode
-
-* `onStart()` → register with MasterNode
-* `storeChunk(chunk_id, data)`
-* `getChunk(chunk_id)`
-* `sendHeartbeat()`
-
-### 🟢 ClientNode
-
-* `startUploadSession()` → talks to Master & Balancer
-* `streamFileToBalancer()`
-* `downloadFileFromChunks()`
-
-### 🟡 DatabaseNode
-
-* `createFileRecord(user_id, filename)`
-* `linkChunkToFile()`
-* `getChunkMap(file_id)`
-* `getChunkLocations(chunk_id)`
-
----
-
-## 🔐 Security Model
-
-* Chunk data AES-encrypted
-* Keys encrypted with master key
-* Master key never leaves secure node
-* All network transfers encrypted
-* Internal REST calls authenticated with internal API key from config
-
----
-
-## 🐞 Error Handling / Edge Cases
-
-* Upload fails mid-stream → Balancer rollbacks chunks
-* DataNode full → returns 507 → Balancer re-assigns
-* Node crash → Master marks as dead
-* Orphaned chunk cleanup via sweeper job
-* Session timeouts (UploadSession TTL)
-
----
-
-## 🚀 DevOps / Packaging Plan
-
-* Java + Spring Boot
-* Maven for builds
-* Dockerfile per node:
-
-    * `node.jar`
-    * `config.json`
-* Releases published to GitHub
-
----
-
-## 🧾 Next Steps
-
-* [ ] Scaffold Spring Boot projects per node
-* [ ] Write `Chunk` class + encrypt/decrypt utils
-* [ ] Write allocator service in Balancer
-* [ ] Build heartbeat system between nodes
-* [ ] Implement chunk upload/download APIs
-* [ ] Build session manager
-* [ ] Write garbage collector for orphaned chunks
-* [ ] Publish first working build
+1) DatabaseNode: Single Point of Failure
+   - Currently by design, there exists only one DatabaseNode in the cluster. This leaves DatabaseNode as a single point of failure for complete system.
+   - **Suggested Fix**: Implement DatabaseNode replication so all DatabaseNodes maintain identical DB copies constantly, and update the system to handle fallback on multiple data nodes
+2) No tolerance for failure mid upload/download
+   - Theres no proper error handling or retry logic incase of node failures using active uploads/downloads, currently the request simply returns `HTTP 500: Internal_Server_Error`
