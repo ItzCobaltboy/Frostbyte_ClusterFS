@@ -419,4 +419,16 @@ public class ChunkMetadataService {
         return orphaned;
     }
 
+    public void updateReplicaStatus(UUID chunkId, String datanodeId, ReplicaStatus newStatus) {
+        log.info("Updating replica status for chunk " + chunkId + " on datanode " + datanodeId + " to " + newStatus);
+
+        ChunkReplica replica = chunkReplicaRepository.findByChunkIdAndDatanodeId(chunkId, datanodeId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Replica not found for chunk " + chunkId + " on datanode " + datanodeId));
+
+        replica.setStatus(newStatus);
+        chunkReplicaRepository.save(replica);
+
+        log.info("Replica status updated successfully for chunk " + chunkId + " on datanode " + datanodeId);
+    }
 }
