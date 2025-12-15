@@ -19,6 +19,15 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+/*
+    * ReplicaController
+    * Dedicated API for managing chunk replicas across DataNodes
+    * Handles registration, status updates, queries, and cleanup of replicas
+    *
+    * THIS Controller is DIFFERENT from UploadController in the balancer module.
+    * This controller is used for managing records of which datanode stores a specific chunk replica.
+ */
+
 @RestController
 @RequestMapping("/replicas")
 public class ReplicaController {
@@ -38,9 +47,7 @@ public class ReplicaController {
         this.config = config;
     }
 
-    // =================================================================
     // 1. REPLICA REGISTRATION
-    // =================================================================
 
     /**
      * Register a single chunk replica location
@@ -51,7 +58,7 @@ public class ReplicaController {
             @RequestHeader(value = API_HEADER) String apiKey,
             @RequestBody Map<String, Object> replicaData) {
 
-        if (!isAuthorized(apiKey)) {
+        if (isAuthorized(apiKey)) {
             log.warning("Unauthorized replica registration attempt");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Forbidden: Invalid API key"));
@@ -112,7 +119,7 @@ public class ReplicaController {
         log.info("[BATCH-REPLICA-REQ] Received batch replica registration request");
         log.info("[BATCH-REPLICA-REQ] batchData=" + batchData);
 
-        if (!isAuthorized(apiKey)) {
+        if (isAuthorized(apiKey)) {
             log.warning("[BATCH-REPLICA-REQ] Unauthorized API key");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Forbidden: Invalid API key"));
@@ -190,10 +197,7 @@ public class ReplicaController {
         }
     }
 
-    // =================================================================
     // 2. REPLICA STATUS MANAGEMENT
-    // =================================================================
-
     /**
      * Update replica status (e.g., mark as FAILED, CORRUPTED, etc.)
      * Called by DataNode or monitoring services when replica health changes
@@ -203,7 +207,7 @@ public class ReplicaController {
             @RequestHeader(value = API_HEADER) String apiKey,
             @RequestBody Map<String, String> statusUpdate) {
 
-        if (!isAuthorized(apiKey)) {
+        if (isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Forbidden: Invalid API key"));
         }
@@ -240,9 +244,8 @@ public class ReplicaController {
         }
     }
 
-    // =================================================================
+
     // 3. REPLICA QUERIES (FOR DOWNLOADS & MONITORING)
-    // =================================================================
 
     /**
      * Get file chunk map for download reconstruction
@@ -254,7 +257,7 @@ public class ReplicaController {
             @RequestHeader(value = API_HEADER) String apiKey,
             @PathVariable("fileId") UUID fileId) {
 
-        if (!isAuthorized(apiKey)) {
+        if (isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Forbidden: Invalid API key"));
         }
@@ -291,7 +294,7 @@ public class ReplicaController {
             @RequestHeader(value = API_HEADER) String apiKey,
             @PathVariable("chunkId") UUID chunkId) {
 
-        if (!isAuthorized(apiKey)) {
+        if (isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Forbidden: Invalid API key"));
         }
@@ -319,42 +322,7 @@ public class ReplicaController {
         }
     }
 
-    /**
-     * Get all replicas on a specific DataNode
-     * Called by MasterNode when DataNode fails or during load balancing
-     */
-    @GetMapping("/datanode/{datanodeId}")
-    public ResponseEntity<?> getDataNodeReplicas(
-            @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable("datanodeId") String datanodeId) {
-
-        if (!isAuthorized(apiKey)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden: Invalid API key"));
-        }
-
-        try {
-            List<ChunkReplica> replicas = chunkMetadataService.getReplicasOnDataNode(datanodeId);
-
-            log.info("Retrieved " + replicas.size() + " replicas for datanode: " + datanodeId);
-
-            return ResponseEntity.ok(Map.of(
-                    "datanodeId", datanodeId,
-                    "replicas", replicas,
-                    "replicaCount", replicas.size(),
-                    "message", "DataNode replicas retrieved successfully"
-            ));
-
-        } catch (Exception e) {
-            log.severe("Failed to get DataNode replicas: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to get DataNode replicas: " + e.getMessage()));
-        }
-    }
-
-    // =================================================================
     // 4. REPLICA CLEANUP & MAINTENANCE
-    // =================================================================
 
     /**
      * Delete specific chunk replica
@@ -366,7 +334,7 @@ public class ReplicaController {
             @PathVariable("chunkId") UUID chunkId,
             @PathVariable("datanodeId") String datanodeId) {
 
-        if (!isAuthorized(apiKey)) {
+        if (isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Forbidden: Invalid API key"));
         }
@@ -409,7 +377,7 @@ public class ReplicaController {
             @RequestHeader(value = API_HEADER) String apiKey,
             @PathVariable("chunkId") UUID chunkId) {
 
-        if (!isAuthorized(apiKey)) {
+        if (isAuthorized(apiKey)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Forbidden: Invalid API key"));
         }
@@ -432,114 +400,8 @@ public class ReplicaController {
         }
     }
 
-    /**
-     * Delete all replicas on a specific DataNode
-     * Called when DataNode is permanently removed from cluster
-     */
-    @DeleteMapping("/datanode/{datanodeId}")
-    public ResponseEntity<?> deleteDataNodeReplicas(
-            @RequestHeader(value = API_HEADER) String apiKey,
-            @PathVariable("datanodeId") String datanodeId) {
-
-        if (!isAuthorized(apiKey)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden: Invalid API key"));
-        }
-
-        try {
-            List<ChunkReplica> replicas = chunkMetadataService.getReplicasOnDataNode(datanodeId);
-            int replicaCount = replicas.size();
-
-            // You'll need to add this method to ChunkMetadataService
-            // chunkMetadataService.deleteAllReplicasOnDataNode(datanodeId);
-
-            log.warning("ALL REPLICAS DELETED from datanode: " + datanodeId + " (count: " + replicaCount + ")");
-
-            return ResponseEntity.ok(Map.of(
-                    "datanodeId", datanodeId,
-                    "deletedCount", replicaCount,
-                    "message", "All replicas deleted from DataNode successfully"
-            ));
-
-        } catch (Exception e) {
-            log.severe("Failed to delete DataNode replicas: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to delete DataNode replicas: " + e.getMessage()));
-        }
-    }
-
-    // =================================================================
-    // 5. MONITORING & HEALTH ENDPOINTS
-    // =================================================================
-
-    /**
-     * Get replica statistics
-     * Useful for monitoring system health and load distribution
-     */
-    @GetMapping("/stats")
-    public ResponseEntity<?> getReplicaStats(
-            @RequestHeader(value = API_HEADER) String apiKey) {
-
-        if (!isAuthorized(apiKey)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden: Invalid API key"));
-        }
-
-        try {
-            // You'll need to add these methods to ChunkMetadataService:
-            // Map<String, Long> replicaCountPerDataNode = chunkMetadataService.getReplicaCountPerDataNode();
-            // List<UUID> underReplicatedChunks = chunkMetadataService.getUnderReplicatedChunks(2); // assuming min 2 replicas
-            // long totalReplicas = chunkMetadataService.getTotalReplicaCount();
-
-            return ResponseEntity.ok(Map.of(
-                    "message", "Replica statistics endpoint - methods need to be implemented",
-                    "note", "Add getReplicaCountPerDataNode, getUnderReplicatedChunks, getTotalReplicaCount to ChunkMetadataService"
-                    // "totalReplicas", totalReplicas,
-                    // "replicaDistribution", replicaCountPerDataNode,
-                    // "underReplicatedChunks", underReplicatedChunks.size()
-            ));
-
-        } catch (Exception e) {
-            log.severe("Failed to get replica statistics: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to get replica statistics: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Health check for replica system
-     * Returns basic system health indicators
-     */
-    @GetMapping("/health")
-    public ResponseEntity<?> getReplicaSystemHealth(
-            @RequestHeader(value = API_HEADER) String apiKey) {
-
-        if (!isAuthorized(apiKey)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden: Invalid API key"));
-        }
-
-        try {
-            // Basic health check - you can expand this
-            return ResponseEntity.ok(Map.of(
-                    "status", "healthy",
-                    "service", "ReplicaController",
-                    "timestamp", System.currentTimeMillis(),
-                    "message", "Replica management system is operational"
-            ));
-
-        } catch (Exception e) {
-            log.severe("Health check failed: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of(
-                            "status", "unhealthy",
-                            "error", e.getMessage(),
-                            "timestamp", System.currentTimeMillis()
-                    ));
-        }
-    }
-
+    // Helper method to validate API key
     private boolean isAuthorized(String apiKey) {
-        return config.getMasterAPIKey().equals(apiKey);
+        return !config.getMasterAPIKey().equals(apiKey);
     }
 }

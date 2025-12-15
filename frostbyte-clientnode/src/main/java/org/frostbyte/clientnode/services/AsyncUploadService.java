@@ -18,6 +18,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+
+/*
+* AsyncUploadService
+* Handles asynchronous processing of file chunks: encryption and registration with DatabaseNode.
+* Uses a configurable thread pool for concurrent processing.
+* thread pool size are taken from application.properties
+ */
 @Service
 public class AsyncUploadService {
     private static final Logger log = Logger.getLogger(AsyncUploadService.class.getName());
@@ -33,12 +40,15 @@ public class AsyncUploadService {
 
     @PostConstruct
     public void init() {
+        // Default to 4 threads if config is missing or invalid
         int threads = 4;
         try {
             if (config != null && config.getMaxThreadPool() > 0) threads = config.getMaxThreadPool();
         } catch (Exception ignored) {}
 
         final AtomicInteger counter = new AtomicInteger(1);
+
+        // Custom thread factory to name threads
         ThreadFactory tf = r -> {
             Thread t = new Thread(r, "async-upload-" + counter.getAndIncrement());
             t.setDaemon(false);
@@ -74,6 +84,9 @@ public class AsyncUploadService {
                                                      int chunkNumber, int totalChunks,
                                                      byte[] chunkData, String base64AesKey) {
         return CompletableFuture.supplyAsync(() -> {
+
+            // Error handling
+            // Dont accept non vibing chucks boys, we hate em
             if (chunkData == null) {
                 log.severe(String.format("[ERROR] chunkData is null for chunkId=%s fileId=%s chunkNumber=%d", chunkId, fileId, chunkNumber));
                 throw new IllegalArgumentException("chunkData cannot be null");
@@ -128,6 +141,8 @@ public class AsyncUploadService {
 
                 return s;
             } catch (Exception e) {
+                // Sad case
+                // May this code block never run
                 log.log(Level.SEVERE, String.format("[ERROR] chunkProcess chunkId=%s fileId=%s chunkNumber=%d thread=%s",
                         chunkId, fileId, chunkNumber, threadName), e);
                 throw new RuntimeException(e);

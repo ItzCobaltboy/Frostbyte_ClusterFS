@@ -19,6 +19,12 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+
+/**
+ * BalancerNodeClient Wrapper for client controller
+ * Handles direct communication with BalancerNode for uploading and downloading snowflakes.
+ * Uses RestTemplate with configured timeouts for large file transfers.
+ */
 @Service
 public class BalancerNodeClient {
     private static final Logger log = Logger.getLogger(BalancerNodeClient.class.getName());

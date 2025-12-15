@@ -11,15 +11,19 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
+/**
+ * ClientNode public API controller for file upload and download operations.
+ */
 @RestController
 @RequestMapping("/public")
 public class ClientController {
@@ -29,41 +33,47 @@ public class ClientController {
     private final configModel config;
     private final KeyClient keyClient;
     private final AsyncUploadService asyncUploadService;
-    private final SessionManager sessionManager;
     private final MasterNodeDiscoveryService discoveryService;
     private final BalancerNodeClient balancerClient;
     private final DatabaseNodeClient databaseNodeClient;
 
-    public ClientController(configModel config, KeyClient keyClient, AsyncUploadService asyncUploadService,
-                            SessionManager sessionManager, MasterNodeDiscoveryService discoveryService,
+    public ClientController(configModel config, KeyClient keyClient, AsyncUploadService asyncUploadService, MasterNodeDiscoveryService discoveryService,
                             BalancerNodeClient balancerClient, DatabaseNodeClient databaseNodeClient) {
         this.config = config;
         this.keyClient = keyClient;
         this.asyncUploadService = asyncUploadService;
-        this.sessionManager = sessionManager;
         this.discoveryService = discoveryService;
         this.balancerClient = balancerClient;
         this.databaseNodeClient = databaseNodeClient;
     }
 
     /**
-     * Single upload endpoint: initializes session on DatabaseNode, performs chunking + per-chunk key requests,
-     * and sends snowflakes directly to balancer (no local storage).
-     * Accepts multipart file upload and streams/chunks it server-side.
+     * UPLOAD ENDPOINT
+     * - Public endpoint for uploading files to the Frostbyte network.
+     * - Chunks file, encrypts each chunk, creates snowflakes,
+     * - and sends snowflakes directly to balancer (no local storage).
+     * - Accepts multipart file upload and streams/chunks it server-side.
+     *
+     * Param 'file' Multipart file to upload
+     * Param 'totalChunks' (optional) total number of chunks (if known)
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> uploadFile(@RequestParam("file") MultipartFile file,
                                                           @RequestParam(name = "totalChunks", required = false, defaultValue = "0") int totalChunks) {
-        Instant start = Instant.now();
+        Instant start = Instant.now(); // Request timer start
+
+        // ERROR HANDLING FOR HTTP
         if (file == null || file.isEmpty()) {
             log.warning("[UPLOAD-REQUEST] empty or missing file");
             return ResponseEntity.badRequest().body(Map.of("error", "file is required"));
         }
 
+        // Retrieve file metadata
         String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "uploaded-file";
         long fileSize = file.getSize();
 
         // Determine chunk size (in bytes) - use config or default to 1MB
+        // Config size fetched from application.properties
         int configuredChunkSizeMB = config.getChunkSizeMB() > 0 ? config.getChunkSizeMB() : 1;
         long chunkSizeBytes = (long) configuredChunkSizeMB * 1024 * 1024;
 
@@ -76,10 +86,30 @@ public class ClientController {
                 originalFilename, fileSize, configuredChunkSizeMB, totalChunks));
 
         String sessionId = null; // Initialize to handle early exceptions
-        String fileId;
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        String fileId; // Will be set after session initialization
+        List<CompletableFuture<Object>> futures = new ArrayList<>();
 
+        /*
+            * Main upload processing block
+            * Upload lifecycle is divided into three stages, implemented in realtime file streaming
+            * 1) Session Initialization
+            *   - Initilise upload session, find a balancer node and route uploads there
+            *   - Create ephemeral RSA keypair for session
+            *
+            * 2) File Chunking + Encryption + Snowflake Creation
+            *   - Stream file, chunk it, encrypt each chunk and create snowflake
+            *   - For each chunk, request per-chunk AES key from DatabaseNode, then serialise the snowflake
+            *   - This part is implemented by encryption service asynchronously, implementing multi threading
+            * 3) Snowflake Upload to Balancer
+            *   - Upload the snowflake to the selected balancer node
+            *  - No local storage of snowflakes on ClientNode, Balancer takes care of allocation
+            *
+            * Refer @EncryptionService and @AsyncUploadService for chunk processing details
+         */
         try (InputStream in = file.getInputStream()) {
+
+            // UPLOAD STAGE 1: Session Initialization
+            //
             // 1) Initialize upload session on DatabaseNode
             Map<String, Object> initResp = keyClient.initializeUploadSession(originalFilename, fileSize, totalChunks);
             sessionId = initResp.get("sessionId").toString();
@@ -98,7 +128,6 @@ public class ClientController {
 
             // 3) Create ephemeral RSA keypair for this session and store it
             KeyPair kp = keyClient.generateClientKeyPair();
-            sessionManager.createSession(fileId, originalFilename, totalChunks, configuredChunkSizeMB, kp);
             String clientPublicKey = keyClient.publicKeyToBase64(kp.getPublic());
             log.fine(String.format("[SESSION-KEY] generated ephemeral RSA keypair for session fileId=%s publicKeyLen=%d",
                     fileId, clientPublicKey.length()));
@@ -112,7 +141,12 @@ public class ClientController {
             final String fixedFileId = fileId; // for lambdas
             final String fixedBalancer = selectedBalancer; // for lambdas
 
+            // UPLOAD STAGE 2 + 3: Chunking + Encryption + Snowflake Creation + Upload to Balancer
+            AtomicBoolean uploadFailed = new AtomicBoolean(false);
+            List<String> failureReasons = Collections.synchronizedList(new ArrayList<>());
+
             while ((read = in.read(buffer)) != -1) {
+                // Prepare chunk data (trim buffer if last chunk is smaller)
                 byte[] chunkBytes = (read == buffer.length) ? buffer.clone() : Arrays.copyOf(buffer, read);
 
                 log.fine(String.format("[CHUNK-READ] fileId=%s chunkNumber=%d bytes=%d", fileId, chunkNumber, chunkBytes.length));
@@ -134,7 +168,7 @@ public class ClientController {
                 final String fixedChunkId = chunkId;
 
                 // 5) Process chunk (encrypt + create snowflake) and immediately send to balancer
-                CompletableFuture<Void> fut = asyncUploadService
+                CompletableFuture<Object> fut = asyncUploadService
                         .processChunk(chunkId, fileId, originalFilename, chunkNumber, totalChunks, chunkBytes, base64AesKey)
                         .thenCompose(snowflake -> {
                             // Send snowflake to balancer (no local storage)
@@ -147,9 +181,12 @@ public class ClientController {
                                             fixedChunkId, currentChunkNumber, resp.get("replicasCreated")));
                                     return null;
                                 } catch (Exception e) {
-                                    log.log(Level.SEVERE, String.format("[BALANCER-UPLOAD-FAILED] chunkId=%s chunkNumber=%d",
-                                            fixedChunkId, currentChunkNumber), e);
-                                    throw new RuntimeException("Failed to upload chunk to balancer: " + e.getMessage(), e);
+                                    log.severe(String.format("[BALANCER-UPLOAD-FAILED] chunkId=%s chunkNumber=%d: ERROR: %s",
+                                            fixedChunkId, currentChunkNumber, e));
+                                    uploadFailed.set(true);
+                                    failureReasons.add("chunk " + currentChunkNumber + ": " + e.getMessage());
+                                    log.severe("[CHUNK-FAILED] chunk=" + currentChunkNumber + " error=" + e);
+                                    return null;
                                 }
                             }, asyncUploadService.getExecutor());
                         });
@@ -162,6 +199,23 @@ public class ClientController {
             log.info(String.format("[WAITING] for %d chunk uploads to complete for fileId=%s", futures.size(), fileId));
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
+            // Check if any chunk upload failed
+            if (uploadFailed.get()) {
+                log.severe("[UPLOAD-FAILED] fileId=" + fileId + " reasons=" + failureReasons);
+
+                try {
+                    keyClient.updateSessionStatus(sessionId, "FAILED");
+                } catch (Exception ignored) {}
+
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of(
+                                "status", "failed",
+                                "fileId", fileId,
+                                "errors", failureReasons
+                        ));
+            }
+
+            // STAGE 3: Finalize upload
             // 7) Mark session as completed using completeSession
             keyClient.completeSession(sessionId);
 
@@ -179,7 +233,7 @@ public class ClientController {
             ));
 
         } catch (Exception e) {
-            log.log(Level.SEVERE, "[UPLOAD-FAILED] upload failed", e);
+            log.severe("[UPLOAD-FAILED] upload failed" + e);
             // Best effort mark failed
             try {
                 if (sessionId != null) keyClient.updateSessionStatus(sessionId, "FAILED");
@@ -305,10 +359,6 @@ public class ClientController {
                                     ", got " + snowflake.getChunkNumber());
                         }
 
-                        // 4b. Retrieve AES key from DatabaseNode
-                        Map<String, Object> keyResponse = keyClient.requestKeyFromKeyService(
-                                keyClient.publicKeyToBase64(downloadKeyPair.getPublic()));
-
                         // For download, we need to retrieve the existing key, not generate a new one
                         // Let's use a different approach - batch retrieve keys at the start
                         // For now, we'll retrieve individual keys (can optimize later)
@@ -337,8 +387,10 @@ public class ClientController {
                             fileId, fileName, totalChunks, totalBytesStreamed, downloadDuration.toMillis()));
 
                 } catch (Exception e) {
-                    log.log(Level.SEVERE, "[DOWNLOAD-STREAM-FAILED] fileId=" + fileId, e);
-                    throw new RuntimeException("Download stream failed: " + e.getMessage(), e);
+                    log.severe("[DOWNLOAD-STREAM-FAILED] fileId=" + fileId + " Error: " + e);
+                    try {
+                        outputStream.close();
+                    } catch (IOException ignored) {}
                 }
             };
 
@@ -353,7 +405,7 @@ public class ClientController {
                     .body(streamingResponseBody);
 
         } catch (Exception e) {
-            log.log(Level.SEVERE, "[DOWNLOAD-FAILED] download initialization failed", e);
+            log.severe("[DOWNLOAD-FAILED] download initialization failed" + e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }

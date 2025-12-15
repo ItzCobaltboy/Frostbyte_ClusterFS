@@ -1,8 +1,6 @@
 package org.frostbyte.databaseNode.services;
 
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import org.frostbyte.databaseNode.entities.File;
 import org.frostbyte.databaseNode.entities.UploadSession;
 import org.frostbyte.databaseNode.models.UploadStatus;
@@ -139,27 +137,6 @@ public class UploadSessionService {
     // =================================================================
 
     /**
-     * Increment chunk counter (called by ChunkMetadataService)
-     * NOTE: This method is called FROM ChunkMetadataService, so we don't call it here
-     * This is just for manual updates if needed
-     */
-    @Transactional
-    public UploadSession incrementChunkCounter(UUID sessionId) {
-        log.info("Incrementing chunk counter for session: " + sessionId);
-
-        UploadSession session = uploadSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
-
-        session.setChunksReceived(session.getChunksReceived() + 1);
-        session.setUpdatedAt(Timestamp.from(Instant.now()));
-
-        UploadSession updatedSession = uploadSessionRepository.save(session);
-        log.info("Chunk counter incremented: " + sessionId + " -> " + updatedSession.getChunksReceived());
-
-        return updatedSession;
-    }
-
-    /**
      * Check if session is complete (all chunks received)
      */
     @Transactional(readOnly = true)
@@ -210,19 +187,6 @@ public class UploadSessionService {
         return completedSession;
     }
 
-    /**
-     * Fail session (mark as failed)
-     */
-    @Transactional
-    public UploadSession failSession(UUID sessionId, String reason) {
-        log.warning("Failing session: " + sessionId + " - Reason: " + reason);
-
-        UploadSession failedSession = updateSessionStatus(sessionId, UploadStatus.FAILED);
-        // Could add a reason field to UploadSession entity if needed
-
-        return failedSession;
-    }
-
     // =================================================================
     // 5. FETCH SESSION FUNCTIONS
     // =================================================================
@@ -242,14 +206,6 @@ public class UploadSessionService {
     @Transactional(readOnly = true)
     public List<UploadSession> getSessionsByStatus(UploadStatus status) {
         return uploadSessionRepository.findByStatus(status);
-    }
-
-    /**
-     * Get sessions by client node
-     */
-    @Transactional(readOnly = true)
-    public List<UploadSession> getSessionsByClientNode(String clientNodeId) {
-        return uploadSessionRepository.findByClientNode(clientNodeId);
     }
 
     /**
@@ -299,24 +255,12 @@ public class UploadSessionService {
     private boolean isValidSessionStatusTransition(UploadStatus from, UploadStatus to) {
         if (from == null) return true; // Allow any initial status
 
-        switch (from) {
-            case UPLOADING:
-                return to == UploadStatus.COMPLETED || to == UploadStatus.FAILED;
-            case COMPLETED:
-                return to == UploadStatus.FAILED; // Allow marking completed as failed (rare case)
-            case FAILED:
-                return to == UploadStatus.UPLOADING; // Allow retry
-            default:
-                return false;
-        }
-    }
-
-    /**
-     * Check if session exists
-     */
-    @Transactional(readOnly = true)
-    public boolean sessionExists(UUID sessionId) {
-        return uploadSessionRepository.existsById(sessionId);
+        return switch (from) {
+            case UPLOADING -> to == UploadStatus.COMPLETED || to == UploadStatus.FAILED;
+            case COMPLETED -> to == UploadStatus.FAILED; // Allow marking completed as failed (rare case)
+            case FAILED -> to == UploadStatus.UPLOADING; // Allow retry
+            default -> false;
+        };
     }
 
     // =================================================================

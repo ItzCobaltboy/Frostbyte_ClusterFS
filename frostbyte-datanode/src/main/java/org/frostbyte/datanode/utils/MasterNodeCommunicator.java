@@ -6,6 +6,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -54,13 +56,29 @@ public class MasterNodeCommunicator {
                 HttpHeaders headers = new HttpHeaders();
                 headers.set("X-API-Key", config.getMasterAPIKey());
 
+                // Calculate current capacity metrics
+                double currentUsedGB = 0.0;
+                double totalCapacityGB = config.getSize();
+                double fillPercent = 0.0;
+
+                try {
+                    currentUsedGB = FolderSizeChecker.getFolderSize(Paths.get(config.getSnowflakeFolder()));
+                    fillPercent = (currentUsedGB / totalCapacityGB) * 100.0;
+                } catch (IOException e) {
+                    log.warning("Failed to calculate folder size for heartbeat: " + e.getMessage());
+                }
+
                 Map<String, Object> body = Map.of(
+                        "currentUsedGB", currentUsedGB,
+                        "totalCapacityGB", totalCapacityGB,
+                        "fillPercent", fillPercent
                 );
 
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
                 restTemplate.postForEntity(url, entity, String.class);
-                log.info("Pinged " + node);
+                log.info("Pinged " + node + " (used: " + String.format("%.2f", currentUsedGB) +
+                        "GB/" + totalCapacityGB + "GB, " + String.format("%.1f", fillPercent) + "%)");
 
             } catch (Exception e) {
                 log.warning("Ping failed for " + node + ": " + e.getMessage());

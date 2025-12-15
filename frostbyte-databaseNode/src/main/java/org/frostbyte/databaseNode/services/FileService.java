@@ -14,6 +14,12 @@ import java.util.List;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+/*
+    * FileService
+    * Service layer for managing File entities and related operations
+    * Handles creation, status updates, retrieval, and deletion of files
+ */
+
 @Service
 public class FileService {
 
@@ -32,9 +38,7 @@ public class FileService {
         this.chunkReplicaRepository = chunkReplicaRepository;
     }
 
-    // =================================================================
     // 1. CREATE FILE FUNCTION
-    // =================================================================
 
     /**
      * Creates a new file record with metadata
@@ -64,14 +68,6 @@ public class FileService {
             throw new IllegalArgumentException("Session ID cannot be null");
         }
 
-        // 2. Check for duplicate filename (optional business rule)
-        // Uncomment if you want unique filenames per system
-        /*
-        if (fileRepository.existsByFileName(fileMetadata.getFileName())) {
-            throw new IllegalArgumentException("File with name already exists: " + fileMetadata.getFileName());
-        }
-        */
-
         // ========== CREATE FILE RECORD ==========
 
         File file = new File();
@@ -88,9 +84,8 @@ public class FileService {
         return savedFile;
     }
 
-    // =================================================================
     // 2. UPDATE FILE STATUS FUNCTION
-    // =================================================================
+
 
     /**
      * Updates file upload status
@@ -134,9 +129,7 @@ public class FileService {
         return updateFileStatus(file.getFileId(), newStatus);
     }
 
-    // =================================================================
     // 3. FETCH FILE FUNCTIONS
-    // =================================================================
 
     /**
      * Get file by ID
@@ -157,9 +150,7 @@ public class FileService {
     }
 
 
-    // =================================================================
     // 4. DELETE FILE FUNCTION (CASCADE DELETE)
-    // =================================================================
 
     /**
      * Deletes file and ALL associated chunks and replicas
@@ -194,9 +185,7 @@ public class FileService {
         log.warning("FILE DELETED: " + file.getFileName() + " (" + fileId + ")");
     }
 
-    // =================================================================
     // 5. VALIDATION & UTILITY FUNCTIONS
-    // =================================================================
 
     /**
      * Check if file upload is complete (all chunks received)

@@ -16,6 +16,12 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.security.NoSuchAlgorithmException;
 
+/*
+    * KeyService
+    * Service layer for handling key generation and retrieval logic.
+    * Interacts with the ChunkKeyRepository to store and fetch keys.
+ */
+
 @Service
 public class KeyService {
 

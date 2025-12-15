@@ -1,7 +1,7 @@
 package org.frostbyte.datanode.controllers;
 
-
 import org.frostbyte.datanode.models.configModel;
+import org.frostbyte.datanode.utils.FolderSizeChecker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.*;
@@ -16,8 +16,12 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
-import org.frostbyte.datanode.utils.FolderSizeChecker;
 
+/*
+    * Datanode_controller
+    * Handles chunk (snowflake) upload/download and storage monitoring
+    * Communicates with BalancerNode and MasterNode
+ */
 
 @RestController
 public class Datanode_controller {
@@ -30,7 +34,19 @@ public class Datanode_controller {
         this.config = config;
     }
 
+    // 1. CHUNK STORAGE OPERATIONS
 
+    /**
+     * Upload and store encrypted chunk (snowflake file).
+     * Called by BalancerNode when distributing chunk replicas
+     * Validates capacity before accepting upload (returns 507 if >capacity).
+     * Prevents duplicate uploads (returns 409 if file already exists).
+     *
+     * @param apiKey Internal API key for authentication
+     * @param file Multipart snowflake file to store
+     * @return 200 OK with success message, 507 INSUFFICIENT_STORAGE if at capacity,
+     *         409 CONFLICT if chunk already exists
+     */
     @PostMapping("/datanode/upload")
     public ResponseEntity<?> uploadsnowflake(
             @RequestHeader(value = API_HEADER) String apiKey,
@@ -82,6 +98,16 @@ public class Datanode_controller {
         }
     }
 
+    /**
+     * Download chunk by snowflake filename.
+     * Called by BalancerNode when servicing download requests.
+     * Returns binary snowflake data (metadata + encrypted chunk).
+     * Logs detailed debugging info if file not found.
+     *
+     * @param apiKey Internal API key for authentication
+     * @param fileName Snowflake filename to retrieve (e.g., "{chunkId}.snowflake")
+     * @return 200 OK with binary snowflake data, 404 NOT_FOUND if chunk doesn't exist
+     */
     @PostMapping("/datanode/download")
     public ResponseEntity<?> post(@RequestHeader(value = API_HEADER) String apiKey,
                                        @RequestParam(value = "snowflake_name") String fileName) {
@@ -126,6 +152,18 @@ public class Datanode_controller {
         }
     }
 
+    // =================================================================
+    // 2. CAPACITY MONITORING
+    // =================================================================
+
+    /**
+     * Get current storage usage metrics.
+     * Called by MasterNode during heartbeat processing to track node capacity.
+     * Calculates real-time disk usage of snowflake storage folder.
+     *
+     * @param apiKey Internal API key for authentication
+     * @return JSON with currentUsedGB and fillPercent fields
+     */
     @GetMapping("/datanode/storage")
     public ResponseEntity<?> getStorage(@RequestHeader(value = API_HEADER) String apiKey){
 

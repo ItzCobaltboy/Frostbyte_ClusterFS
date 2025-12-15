@@ -15,6 +15,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.logging.Logger;
 
+/*
+    * KeyController
+    * Dedicated API for handling key generations and retrievals from database
+    * Critical endpoint, keep it secure
+ */
+
 @RestController
 @RequestMapping("/keys")
 public class KeyController {

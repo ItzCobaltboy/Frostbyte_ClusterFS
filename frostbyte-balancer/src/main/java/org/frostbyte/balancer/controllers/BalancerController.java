@@ -19,6 +19,9 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+/*
+*   PRIMARY CONTROLLER FOR BALANCER NODE
+* */
 @RestController
 @RequestMapping("/balancer")
 public class BalancerController {
@@ -51,31 +54,16 @@ public class BalancerController {
         return config.getMasterAPIKey().equals(apiKey);
     }
 
-    /**
-     * Upload snowflake endpoint
-     * Accepts an encrypted chunk (snowflake), creates replicas according to configuration,
-     * and registers them in the database
-     *
-     * POST /balancer/upload/snowflake
-     *
-     * Request Parameters:
-     * - snowflake: MultipartFile containing the encrypted chunk data
-     * - chunkId: UUID of the chunk (from DatabaseNode)
-     * - fileName: Original snowflake filename (e.g., "{snowflakeUuid}.snowflake")
-     *
-     * Response:
-     * - status: success/failure
-     * - message: Description of the operation
-     * - replicasCreated: Number of replicas successfully created
-     * - replicaLocations: List of datanode hosts where replicas were stored
-     */
+
+    // CHUNK UPLOAD & REPLICATION
     @PostMapping("/upload/snowflake")
     public ResponseEntity<?> uploadSnowflake(
-            @RequestHeader(value = API_HEADER) String apiKey,
-            @RequestParam("snowflake") MultipartFile snowflakeFile,
-            @RequestParam("chunkId") String chunkId,
-            @RequestParam(value = "fileName", required = false) String fileName) {
+            @RequestHeader(value = API_HEADER) String apiKey, // ask for API key in header
+            @RequestParam("snowflake") MultipartFile snowflakeFile, // snowflake file upload
+            @RequestParam("chunkId") String chunkId, // chunk ID
+            @RequestParam(value = "fileName", required = false) String fileName) { // optional original filename
 
+        // HTTP ERROR HANDLING and AUTH
         if (!isAuthorized(apiKey)) {
             log.warning("Unauthorized snowflake upload attempt");
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -113,18 +101,37 @@ public class BalancerController {
                         ));
             }
 
-            // Step 2: Select datanodes for replicas
+            // Step 2: Select datanodes for replicas using capacity-aware heap algorithm
+
+            /*
+                * Greedy based Latin Rectangle Algorithm for Replica Selection
+                * - Uses min-heap based on projectedFillPercent to select least-loaded nodes
+                * - Ensures no duplicate nodes for the same chunk (Latin rectangle property)
+                *
+             */
             int replicaCount = config.getReplicaCount();
-            int offset = chunkCounter.getAndIncrement(); // Different offset for each chunk
+            log.fine("Selecting "+ replicaCount +" datanodes for replicas from" + availableNodes.size() + "available nodes");
+            int offset = chunkCounter.getAndIncrement(); // Different offset for each chunk (legacy param)
             List<DataNodeInfo> selectedNodes = dataNodeService.selectDataNodesForReplicas(
                     availableNodes, replicaCount, offset);
 
             if (selectedNodes.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                        .body(Map.of("error", "Could not select datanodes for replication"));
+                log.severe("No datanodes selected - all nodes may be at capacity or unavailable");
+                return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
+                        .body(Map.of(
+                                "error", "No datanodes available with sufficient capacity",
+                                "message", "All storage nodes are at or near capacity (>95% full)"
+                        ));
             }
 
-            log.info("Selected " + selectedNodes.size() + " datanodes for replication");
+            // Warn if we couldn't get the requested number of replicas
+            if (selectedNodes.size() < replicaCount) {
+                log.warning(String.format("Partial replica allocation: selected %d/%d replicas due to capacity constraints",
+                        selectedNodes.size(), replicaCount));
+            }
+
+            log.info(String.format("Selected %d datanodes for replication (requested: %d)",
+                    selectedNodes.size(), replicaCount));
 
             // Step 3: Read snowflake data
             byte[] snowflakeData = snowflakeFile.getBytes();
@@ -173,6 +180,17 @@ public class BalancerController {
                 return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT).body(response);
             }
 
+            // Warn if we created fewer replicas than requested due to capacity constraints
+            if (successfulNodes.size() < replicaCount) {
+                response.put("warning", String.format(
+                        "Partial replication: created %d/%d replicas due to capacity constraints",
+                        successfulNodes.size(), replicaCount));
+                response.put("message", "Snowflake uploaded with reduced replication factor");
+                log.warning(String.format("Upload completed with reduced replication: %d/%d replicas for chunk %s",
+                        successfulNodes.size(), replicaCount, chunkId));
+                return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT).body(response);
+            }
+
             response.put("message", "Snowflake uploaded and replicas registered successfully");
             log.info("Snowflake upload completed: " + successfulNodes.size() + " replicas created for chunk " + chunkId);
 
@@ -188,10 +206,12 @@ public class BalancerController {
         }
     }
 
+    // 2. DIAGNOSTIC ENDPOINTS
     /**
-     * Get available datanodes - utility endpoint for diagnostics
+     * Endpoint to fetch available DataNodes from MasterNode
      *
-     * GET /balancer/datanodes/available
+     * @param apiKey Internal API key for authentication
+     * @return JSON with count, datanodes list, and configured replicaCount
      */
     @GetMapping("/datanodes/available")
     public ResponseEntity<?> getAvailableDataNodes(@RequestHeader(value = API_HEADER) String apiKey) {
@@ -215,9 +235,9 @@ public class BalancerController {
     }
 
     /**
-     * Health check endpoint
+     * Health check endpoint for monitoring BalancerNode status.
      *
-     * GET /balancer/health
+     * @return JSON with status, nodeName, and configured replicaCount
      */
     @GetMapping("/health")
     public ResponseEntity<?> healthCheck() {
@@ -228,25 +248,27 @@ public class BalancerController {
         ));
     }
 
+    // =================================================================
+    // 3. CHUNK DOWNLOAD
+    // =================================================================
+
     /**
-     * Download chunk endpoint
-     * Accepts a chunk download request, selects an available replica,
-     * downloads from DataNode, validates CRC32, and returns encrypted snowflake
+     * Download chunk from DataNode with automatic replica failover.
+     * Called by ClientNode for each chunk during file download.
      *
-     * POST /balancer/download/chunk
+     * <p>Process:
+     * <ol>
+     *   <li>Query DatabaseNode for chunk replica locations</li>
+     *   <li>Select random replica from available locations</li>
+     *   <li>Download from selected DataNode</li>
+     *   <li>Validate CRC32 checksum</li>
+     *   <li>If validation fails or node unavailable, retry with next replica</li>
+     * </ol>
      *
-     * Request Body:
-     * {
-     *   "fileId": "uuid",
-     *   "chunkId": "uuid",
-     *   "chunkNumber": 0
-     * }
-     *
-     * Response:
-     * - Binary snowflake data (encrypted chunk with metadata)
-     * - HTTP 200 OK on success
-     * - HTTP 404 NOT FOUND if no replicas available
-     * - HTTP 500 INTERNAL SERVER ERROR if all replicas fail CRC validation
+     * @param apiKey Internal API key for authentication
+     * @param requestBody JSON with fileId, chunkId, chunkNumber fields
+     * @return Binary snowflake data (metadata + encrypted chunk), 404 if no replicas available,
+     *         500 if all replicas fail CRC validation
      */
     @PostMapping(value = "/download/chunk", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<?> downloadChunk(

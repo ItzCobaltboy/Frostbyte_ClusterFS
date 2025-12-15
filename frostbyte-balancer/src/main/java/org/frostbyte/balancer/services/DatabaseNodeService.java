@@ -26,12 +26,12 @@ public class DatabaseNodeService {
 
     /**
      * Fetch an alive DatabaseNode URL from MasterNode
-     *
      * @return DatabaseNode URL (e.g., "http://127.0.0.1:8082") or null if none available
      */
     public String fetchDatabaseNodeUrl() {
         for (String masterNode : config.getMasterNodes()) {
             try {
+                log.fine("Fetching database node URL from masterNode " + masterNode);
                 String url = "http://" + masterNode + "/database/getAlive";
 
                 HttpHeaders headers = new HttpHeaders();

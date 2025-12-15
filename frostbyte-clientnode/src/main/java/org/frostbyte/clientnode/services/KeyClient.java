@@ -17,6 +17,12 @@ import java.util.logging.Logger;
 import java.time.Duration;
 import java.time.Instant;
 
+/*
+ * KeyClient
+ * Handles RSA key generation, encryption/decryption, and communication with DatabaseNode KeyService.
+ * snowflake encryption keys are requested from DatabaseNode using this client.
+ */
+
 @Service
 public class  KeyClient {
     private static final Logger log = Logger.getLogger(KeyClient.class.getName());

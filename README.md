@@ -1,8 +1,3 @@
-# NOTE: This project is still under progress at time of latest commit, below is the System design
-## Progress
-- All Micro Services have been designed successfully, the download pipelines works
-- Need to create the download pipeline and test multi endpoint deployment
-
 # ☁️ Frostbyte ClusterFS Plan
 
 ## 🔥 Project Summary

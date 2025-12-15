@@ -13,6 +13,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.logging.Logger;
 
+/**
+ * Service to discover DatabaseNode addresses from MasterNode(s) with fallback logic.
+ * Tries each MasterNode in sequence until one responds successfully.
+ * Caches result for a configurable TTL to reduce load on MasterNodes.
+ */
+
 @Service
 public class MasterNodeDiscoveryService {
     private static final Logger log = Logger.getLogger(MasterNodeDiscoveryService.class.getName());

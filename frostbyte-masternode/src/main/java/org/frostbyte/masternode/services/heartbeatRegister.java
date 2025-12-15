@@ -55,6 +55,21 @@ public class heartbeatRegister {
         return false;
     }
 
+    public boolean updateDataNode(String nodeName, double currentUsedGB, double totalCapacityGB, double fillPercent) {
+        for (DataNode node : datanodes) {
+            if (node.getNodeName().equals(nodeName)) {
+                node.setLastUpdateTime(LocalDateTime.now());
+                node.setAlive(true);
+                // Update capacity metrics
+                node.setCurrentUsedGB(currentUsedGB);
+                node.setTotalCapacityGB(totalCapacityGB);
+                node.setFillPercent(fillPercent);
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean updateBalancerNode(String nodeName) {
         for (BalancerNode node : balancers) {
             if (node.getNodeName().equals(nodeName)) {

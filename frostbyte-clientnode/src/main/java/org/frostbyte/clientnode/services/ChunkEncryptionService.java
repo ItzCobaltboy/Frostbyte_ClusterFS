@@ -8,6 +8,11 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.SecureRandom;
 import java.util.Base64;
 
+/*
+* ChunkEncryptionService
+* Primary service for encrypting and decrypting file chunks using AES-GCM.
+* Utilizes a base64-encoded AES key for encryption/decryption.
+*/
 @Service
 public class ChunkEncryptionService {
 

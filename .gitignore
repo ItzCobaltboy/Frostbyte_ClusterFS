@@ -28,9 +28,11 @@ replay_pid*
 # IntelliJ Idea Trash
 .idea/
 .claude/
-chunk_sequencing.md
-download.md
-download_pipeline.md
+/frostbyte-balancer/target/
+/frostbyte-clientnode/target/
+/frostbyte-databaseNode/target/
+/frostbyte-datanode/target/
+/frostbyte-masternode/target/
 
 # Runtime Trash
 config.json
@@ -38,3 +40,4 @@ chunks/
 target/*
 
 CLAUDE.md
+

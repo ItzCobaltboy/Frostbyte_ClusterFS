@@ -1,7 +1,5 @@
 package org.frostbyte.databaseNode.services;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.frostbyte.databaseNode.entities.Chunk;
 import org.frostbyte.databaseNode.entities.ChunkReplica;
 import org.frostbyte.databaseNode.entities.File;
@@ -16,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.logging.Logger;
@@ -262,25 +259,6 @@ public class ChunkMetadataService {
     // 5. UTILITY METHODS
     // =================================================================
 
-    /**
-     * Get chunk count for a specific file (useful for validation)
-     */
-    @Transactional(readOnly = true)
-    public long getChunkCountForFile(UUID fileId) {
-        return chunkRepository.countByFileId(fileId);
-    }
-
-    /**
-     * Check if all chunks are registered for a file
-     */
-    @Transactional(readOnly = true)
-    public boolean areAllChunksRegistered(UUID fileId) {
-        File file = fileRepository.findById(fileId)
-                .orElseThrow(() -> new IllegalArgumentException("File not found: " + fileId));
-
-        long registeredChunks = chunkRepository.countByFileId(fileId);
-        return registeredChunks == file.getTotalChunks();
-    }
 
     /**
      * Get replicas for a specific DataNode (useful for DataNode failure handling)
@@ -374,74 +352,6 @@ public class ChunkMetadataService {
     }
 
     /**
-     * Get replica count distribution across DataNodes
-     * Used for load balancing and monitoring
-     */
-    @Transactional(readOnly = true)
-    public Map<String, Long> getReplicaCountPerDataNode() {
-        log.info("Getting replica distribution across DataNodes");
-
-        List<ChunkReplica> allReplicas = chunkReplicaRepository.findAll();
-
-        Map<String, Long> distribution = allReplicas.stream()
-                .collect(Collectors.groupingBy(
-                        ChunkReplica::getDatanodeId,
-                        Collectors.counting()
-                ));
-
-        log.info("Replica distribution: " + distribution);
-        return distribution;
-    }
-
-    /**
-     * Find chunks with insufficient replication
-     * Critical for system health monitoring
-     */
-    @Transactional(readOnly = true)
-    public List<UUID> getUnderReplicatedChunks(int minReplicas) {
-        log.info("Finding chunks with less than " + minReplicas + " replicas");
-
-        // Get all chunks and their replica counts
-        List<Chunk> allChunks = chunkRepository.findAll();
-
-        List<UUID> underReplicated = allChunks.stream()
-                .map(Chunk::getChunkId)
-                .filter(chunkId -> {
-                    long replicaCount = chunkReplicaRepository.countByChunkId(chunkId);
-                    return replicaCount < minReplicas;
-                })
-                .collect(Collectors.toList());
-
-        if (!underReplicated.isEmpty()) {
-            log.warning("Found " + underReplicated.size() + " under-replicated chunks");
-        }
-
-        return underReplicated;
-    }
-
-    /**
-     * Find chunks with excessive replication (over target)
-     * Used for storage optimization
-     */
-    @Transactional(readOnly = true)
-    public List<UUID> getOverReplicatedChunks(int maxReplicas) {
-        log.info("Finding chunks with more than " + maxReplicas + " replicas");
-
-        List<Chunk> allChunks = chunkRepository.findAll();
-
-        List<UUID> overReplicated = allChunks.stream()
-                .map(Chunk::getChunkId)
-                .filter(chunkId -> {
-                    long replicaCount = chunkReplicaRepository.countByChunkId(chunkId);
-                    return replicaCount > maxReplicas;
-                })
-                .collect(Collectors.toList());
-
-        log.info("Found " + overReplicated.size() + " over-replicated chunks");
-        return overReplicated;
-    }
-
-    /**
      * Get total replica count across entire system
      * Used for storage statistics
      */
@@ -484,41 +394,6 @@ public class ChunkMetadataService {
     // =================================================================
 
     /**
-     * Get comprehensive system health statistics
-     * Used by monitoring and admin endpoints
-     */
-    @Transactional(readOnly = true)
-    public SystemHealthStats getSystemHealthStats() {
-        log.info("Generating system health statistics");
-
-        SystemHealthStats stats = new SystemHealthStats();
-
-        // Basic counts
-        stats.setTotalChunks(getTotalChunkCount());
-        stats.setTotalReplicas(getTotalReplicaCount());
-        stats.setAverageReplicationFactor(getAverageReplicationFactor());
-
-        // Replication health
-        stats.setUnderReplicatedChunks(getUnderReplicatedChunks(2).size()); // Assuming min 2 replicas
-        stats.setOverReplicatedChunks(getOverReplicatedChunks(3).size()); // Assuming max 3 replicas
-
-        // DataNode distribution
-        stats.setReplicaDistribution(getReplicaCountPerDataNode());
-
-        // Health status
-        if (stats.getUnderReplicatedChunks() > 0) {
-            stats.setHealthStatus("DEGRADED");
-        } else if (stats.getTotalChunks() == 0) {
-            stats.setHealthStatus("EMPTY");
-        } else {
-            stats.setHealthStatus("HEALTHY");
-        }
-
-        log.info("System health: " + stats.getHealthStatus());
-        return stats;
-    }
-
-    /**
      * Find orphaned chunks (chunks without any replicas)
      * Critical for data integrity monitoring
      */
@@ -529,11 +404,11 @@ public class ChunkMetadataService {
         List<Chunk> allChunks = chunkRepository.findAll();
 
         List<UUID> orphaned = allChunks.stream()
-                .filter(chunk -> {
-                    long replicaCount = chunkReplicaRepository.countByChunkId(chunk.getChunkId());
+                .map(Chunk::getChunkId)
+                .filter(chunkId -> {
+                    long replicaCount = chunkReplicaRepository.countByChunkId(chunkId);
                     return replicaCount == 0;
                 })
-                .map(Chunk::getChunkId)
                 .collect(Collectors.toList());
 
         if (!orphaned.isEmpty()) {
@@ -544,52 +419,4 @@ public class ChunkMetadataService {
         return orphaned;
     }
 
-    /**
-     * Find chunks that exist only on a single DataNode (single point of failure)
-     * Critical for resilience monitoring
-     */
-    @Transactional(readOnly = true)
-    public List<UUID> getSingleReplicaChunks() {
-        log.info("Finding chunks with only one replica (single point of failure)");
-
-        List<Chunk> allChunks = chunkRepository.findAll();
-
-        List<UUID> singleReplica = allChunks.stream()
-                .map(Chunk::getChunkId)
-                .filter(chunkId -> {
-                    long replicaCount = chunkReplicaRepository.countByChunkId(chunkId);
-                    return replicaCount == 1;
-                })
-                .collect(Collectors.toList());
-
-        if (!singleReplica.isEmpty()) {
-            log.warning("Found " + singleReplica.size() + " chunks with only one replica");
-        }
-
-        return singleReplica;
-    }
-
-    public void updateReplicaStatus(UUID chunkId, String datanodeId, ReplicaStatus newStatus) {
-    }
-
-    // =================================================================
-    // 8. SYSTEM HEALTH STATS DTO
-    // =================================================================
-
-    /**
-     * DTO for system health statistics
-     */
-    @Setter
-    @Getter
-    public static class SystemHealthStats {
-        // Getters and setters
-        private long totalChunks;
-        private long totalReplicas;
-        private double averageReplicationFactor;
-        private long underReplicatedChunks;
-        private long overReplicatedChunks;
-        private Map<String, Long> replicaDistribution;
-        private String healthStatus;
-
-    }
 }

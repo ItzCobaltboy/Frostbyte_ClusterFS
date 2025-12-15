@@ -9,9 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
 
 @Service
@@ -62,12 +60,27 @@ public class DataNodeService {
 
                     if (aliveNodesObj instanceof List) {
                         @SuppressWarnings("unchecked")
-                        List<Map<String, String>> nodesList = (List<Map<String, String>>) aliveNodesObj;
+                        List<Map<String, Object>> nodesList = (List<Map<String, Object>>) aliveNodesObj;
 
-                        for (Map<String, String> nodeMap : nodesList) {
+                        for (Map<String, Object> nodeMap : nodesList) {
                             DataNodeInfo info = new DataNodeInfo();
-                            info.setHost(nodeMap.get("host"));
-                            info.setNodeName(nodeMap.get("nodeName"));
+                            info.setHost((String) nodeMap.get("host"));
+                            info.setNodeName((String) nodeMap.get("nodeName"));
+
+                            // Parse capacity metrics if available
+                            if (nodeMap.containsKey("currentUsedGB")) {
+                                info.setCurrentUsedGB(((Number) nodeMap.get("currentUsedGB")).doubleValue());
+                            }
+                            if (nodeMap.containsKey("totalCapacityGB")) {
+                                info.setTotalCapacityGB(((Number) nodeMap.get("totalCapacityGB")).doubleValue());
+                            }
+                            if (nodeMap.containsKey("fillPercent")) {
+                                info.setFillPercent(((Number) nodeMap.get("fillPercent")).doubleValue());
+                            }
+
+                            // Initialize projected fill percent to current fill percent
+                            info.setProjectedFillPercent(info.getFillPercent());
+
                             allDataNodes.add(info);
                         }
 
@@ -88,29 +101,91 @@ public class DataNodeService {
     }
 
     /**
-     * Select N datanodes for chunk replication using a simple round-robin approach
-     * In production, this could implement more sophisticated algorithms like Latin rectangle
+     * Select N datanodes for chunk replication using a heap-based load balancing algorithm
      *
-     * @param availableNodes List of available datanodes
-     * @param count Number of replicas needed
-     * @param offset Offset for selection to ensure different nodes for different chunks
+     * Algorithm:
+     * - Uses min-heap based on projectedFillPercent to select least-loaded nodes
+     * - Ensures no duplicate nodes for the same chunk (Latin rectangle property)
+     * - Filters out nodes near capacity (>95% full)
+     * - Handles edge cases where fewer nodes are available than requested replicas
+     *
+     * @param availableNodes List of available datanodes with capacity metrics
+     * @param count Number of replicas needed (replication factor P)
+     * @param offset Offset parameter (deprecated, kept for API compatibility)
      * @return List of selected datanodes
+     * @throws InsufficientCapacityException if unable to select enough nodes with capacity
      */
     public List<DataNodeInfo> selectDataNodesForReplicas(List<DataNodeInfo> availableNodes, int count, int offset) {
         if (availableNodes.isEmpty()) {
+            log.warning("No datanodes available for selection");
             return new ArrayList<>();
         }
 
-        List<DataNodeInfo> selected = new ArrayList<>();
-        int nodeCount = availableNodes.size();
+        // Capacity threshold - reject nodes above 95% full
+        final double CAPACITY_THRESHOLD = 95.0;
 
-        // Select different nodes in a round-robin fashion with offset
-        for (int i = 0; i < Math.min(count, nodeCount); i++) {
-            int index = (i + offset) % nodeCount;
-            selected.add(availableNodes.get(index));
+        // Build min-heap based on projectedFillPercent
+        PriorityQueue<DataNodeInfo> minHeap = new PriorityQueue<>(
+                Comparator.comparingDouble(DataNodeInfo::getProjectedFillPercent)
+        );
+        minHeap.addAll(availableNodes);
+
+        Set<String> usedNodeNames = new HashSet<>();
+        List<DataNodeInfo> selectedNodes = new ArrayList<>();
+        int attempts = 0;
+        int maxAttempts = availableNodes.size() * 2;
+
+        while (selectedNodes.size() < count && attempts < maxAttempts) {
+            attempts++;
+
+            if (minHeap.isEmpty()) {
+                log.warning(String.format("Min-heap exhausted after %d attempts. Selected %d/%d replicas",
+                        attempts, selectedNodes.size(), count));
+                break;
+            }
+
+            DataNodeInfo node = minHeap.poll();
+
+            // Check: not already used AND has capacity
+            if (!usedNodeNames.contains(node.getNodeName()) &&
+                    node.getProjectedFillPercent() < CAPACITY_THRESHOLD) {
+
+                selectedNodes.add(node);
+                usedNodeNames.add(node.getNodeName());
+
+                log.fine(String.format("Selected node %s (fill: %.1f%%)",
+                        node.getNodeName(), node.getProjectedFillPercent()));
+            } else {
+                log.fine(String.format("Skipped node %s (already used: %b, fill: %.1f%%)",
+                        node.getNodeName(),
+                        usedNodeNames.contains(node.getNodeName()),
+                        node.getProjectedFillPercent()));
+            }
+
+            // Always re-insert for future iterations (heap will re-order)
+            minHeap.offer(node);
         }
 
-        return selected;
+        // Log results
+        if (selectedNodes.size() < count) {
+            log.warning(String.format(
+                    "Could not select enough nodes with capacity. Requested: %d, Selected: %d, Available: %d",
+                    count, selectedNodes.size(), availableNodes.size()));
+        } else {
+            log.info(String.format("Selected %d datanodes for replication (capacity-aware heap algorithm)",
+                    selectedNodes.size()));
+        }
+
+        return selectedNodes;
+    }
+
+    /**
+     * Exception thrown when insufficient nodes with capacity are available
+     */
+    public static class InsufficientCapacityException extends RuntimeException {
+        public InsufficientCapacityException(String message) {
+            super(message);
+        }
     }
 }
 

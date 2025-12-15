@@ -19,6 +19,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+/*
+    * UploadController
+    * Handles upload session initialization, chunk registration,
+    * session status management, and query endpoints.
+ */
+
 @RestController
 @RequestMapping("/upload")
 public class UploadController {
@@ -41,9 +47,7 @@ public class UploadController {
         this.config = config;
     }
 
-    // =================================================================
     // 1. UPLOAD SESSION INITIALIZATION
-    // =================================================================
 
     /**
      * Initialize upload session and create file record
@@ -97,9 +101,7 @@ public class UploadController {
         }
     }
 
-    // =================================================================
     // 2. CHUNK REGISTRATION
-    // =================================================================
 
     /**
      * Register chunk metadata during upload
@@ -152,9 +154,7 @@ public class UploadController {
         }
     }
 
-    // =================================================================
     // 3. SESSION STATUS MANAGEMENT
-    // =================================================================
 
     /**
      * Update session status
@@ -276,9 +276,7 @@ public class UploadController {
         }
     }
 
-    // =================================================================
     // 4. QUERY ENDPOINTS
-    // =================================================================
 
     /**
      * Get session status and progress
@@ -462,6 +460,7 @@ public class UploadController {
         }
     }
 
+    // Helper Utility to validate API key
     private boolean isAuthorized(String apiKey) {
         return config.getMasterAPIKey().equals(apiKey);
     }

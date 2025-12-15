@@ -105,7 +105,7 @@ public class ReplicaService {
             requestBody.put("chunkId", chunkId);
             requestBody.put("datanodeIds", datanodeIds);
 
-            log.info(String.format("[REPLICA-REGISTER-REQUEST] body=%s", requestBody));
+            log.info("[REPLICA-REGISTER-REQUEST] body=" + requestBody);
 
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
