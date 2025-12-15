@@ -23,7 +23,7 @@ Inspired from AWS S3, Frostbyte offers a simple and intuitive API for storing an
 
 ## Getting Started
 ### Distribution Setup (Recommended)
-1. Download the release package from the [GitHub Releases](PLACEHOLDER) along with Java Runtime.
+1. Download the release package from the [GitHub Releases](https://github.com/ItzCobaltboy/Frostbyte_ClusterFS/releases/tag/Main) along with Java Runtime.
 2. Zip file contains 5 folders with 5 jars, configure applications.properties file in each folder as per your cluster setup.
 3. Start the Masternode first, followed by DatabaseNode, Datanodes, BalancerNodes, and finally ClientNodes.
     - The Order of starting nodes is important to ensure proper registration and communication.
